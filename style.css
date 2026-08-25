@@ -125,9 +125,10 @@ button, input { font: inherit; }
   background: #dbeafe;
 }
 
-.leaflet-container { font-family: inherit; }
-.province-path { transition: fill-opacity 0.15s ease; }
-.province-path:hover { fill-opacity: 0.85; }
+.province-map { width: 100%; height: 100%; display: block; }
+.province-path { transition: filter 0.15s ease, opacity 0.15s ease; cursor: pointer; }
+.province-path:hover { opacity: 0.88; filter: brightness(1.05); }
+.province-label { pointer-events: none; font-size: 13px; font-weight: 800; fill: #0f172a; paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
 
 .legend {
   display: flex;
