@@ -1,5 +1,5 @@
 const CONFIG = {
-  geojsonPath: "data/be.json",
+  geojsonPath: "./data/be.json",
   geojsonFallbackPath: "be.json",
   threshold: 5,
   totalSeats: 150,
@@ -181,7 +181,7 @@ function getAllowedParties(district) {
 function fetchGeoJson() {
   return fetch(CONFIG.geojsonPath)
     .then(response => {
-      if (!response.ok) throw new Error(`HTTP ${response.status} sur ${CONFIG.geojsonPath}`);
+      if (!response.ok) throw new Error(`Impossible de charger ./data/be.json (${response.status})`);
       return response.json();
     })
     .catch(primaryError => {
