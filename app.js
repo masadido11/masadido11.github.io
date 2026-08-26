@@ -4,21 +4,22 @@ const CONFIG = {
   threshold: 5,
   totalSeats: 150,
   districts: {
-    "Antwerp": { id: "antwerp", name: "Anvers", seats: 24 },
-    "Limburg": { id: "limburg", name: "Limbourg", seats: 12 },
-    "East Flanders": { id: "east-flanders", name: "Flandre orientale", seats: 20 },
-    "Flemish Brabant": { id: "flemish-brabant", name: "Brabant flamand", seats: 15 },
-    "West Flanders": { id: "west-flanders", name: "Flandre occidentale", seats: 16 },
-    "Brussels": { id: "brussels", name: "Bruxelles-Capitale", seats: 16 },
-    "Walloon Brabant": { id: "walloon-brabant", name: "Brabant wallon", seats: 5 },
-    "Hainaut": { id: "hainaut", name: "Hainaut", seats: 17 },
-    "Liege": { id: "liege", name: "Liège", seats: 14 },
-    "Luxembourg": { id: "luxembourg", name: "Luxembourg", seats: 4 },
-    "Namur": { id: "namur", name: "Namur", seats: 7 },
+    "Antwerp": { id: "antwerp", name: "Anvers", seats: 24, language: "nl" },
+    "Limburg": { id: "limburg", name: "Limbourg", seats: 12, language: "nl" },
+    "East Flanders": { id: "east-flanders", name: "Flandre orientale", seats: 20, language: "nl" },
+    "Flemish Brabant": { id: "flemish-brabant", name: "Brabant flamand", seats: 15, language: "nl" },
+    "West Flanders": { id: "west-flanders", name: "Flandre occidentale", seats: 16, language: "nl" },
+    "Brussels": { id: "brussels", name: "Bruxelles-Capitale", seats: 16, language: "both" },
+    "Walloon Brabant": { id: "walloon-brabant", name: "Brabant wallon", seats: 5, language: "fr" },
+    "Hainaut": { id: "hainaut", name: "Hainaut", seats: 17, language: "fr" },
+    "Liege": { id: "liege", name: "Liège", seats: 14, language: "fr" },
+    "Luxembourg": { id: "luxembourg", name: "Luxembourg", seats: 4, language: "fr" },
+    "Namur": { id: "namur", name: "Namur", seats: 7, language: "fr" },
     "GermanCommunity": {
       id: "german-community",
       name: "Communauté germanophone",
       seats: 0,
+      language: "fr",
       indicative: true,
       note: "Rattachée à la circonscription de Liège au niveau fédéral — saisie indicative, sans sièges propres."
     }
@@ -29,20 +30,25 @@ const CONFIG = {
 const GERMAN_COMMUNITY_LATLNG = [50.6296, 6.0296];
 
 // Partis par défaut demandés (partis traditionnels + principaux partis actuels).
+// family: "fr" = francophone (Wallonie + volet FR de Bruxelles), "nl" = flamand
+// (Flandre + volet NL de Bruxelles), "both" = présent partout (ex: PTB/PVDA).
 const DEFAULT_PARTIES = [
-  { id: "mr", name: "MR", short: "MR", color: "#0B3D91" },
-  { id: "ps", name: "PS", short: "PS", color: "#E4032E" },
-  { id: "le", name: "Les Engagés", short: "LE", color: "#F5A623" },
-  { id: "ecolo", name: "Ecolo", short: "ECOLO", color: "#3C8E3C" },
-  { id: "defi", name: "Défi", short: "DÉFI", color: "#EC008C" },
-  { id: "ptb", name: "PTB/PVDA", short: "PTB", color: "#8B1E3F" },
-  { id: "openvld", name: "Open Vld", short: "VLD", color: "#1CADE4" },
-  { id: "cdv", name: "CD&V", short: "CD&V", color: "#FF7F00" },
-  { id: "vooruit", name: "Vooruit", short: "VRT", color: "#C9184A" },
-  { id: "nva", name: "N-VA", short: "N-VA", color: "#FFD200" },
-  { id: "vb", name: "Vlaams Belang", short: "VB", color: "#5C1A1A" },
-  { id: "groen", name: "Groen", short: "GROEN", color: "#4CAF50" }
+  { id: "mr", name: "MR", short: "MR", color: "#0B3D91", family: "fr" },
+  { id: "ps", name: "PS", short: "PS", color: "#E4032E", family: "fr" },
+  { id: "le", name: "Les Engagés", short: "LE", color: "#F5A623", family: "fr" },
+  { id: "ecolo", name: "Ecolo", short: "ECOLO", color: "#3C8E3C", family: "fr" },
+  { id: "defi", name: "Défi", short: "DÉFI", color: "#EC008C", family: "fr" },
+  { id: "ptb", name: "PTB/PVDA", short: "PTB", color: "#8B1E3F", family: "both" },
+  { id: "openvld", name: "Open Vld", short: "VLD", color: "#1CADE4", family: "nl" },
+  { id: "cdv", name: "CD&V", short: "CD&V", color: "#FF7F00", family: "nl" },
+  { id: "vooruit", name: "Vooruit", short: "VRT", color: "#C9184A", family: "nl" },
+  { id: "nva", name: "N-VA", short: "N-VA", color: "#FFD200", family: "nl" },
+  { id: "vb", name: "Vlaams Belang", short: "VB", color: "#5C1A1A", family: "nl" },
+  { id: "groen", name: "Groen", short: "GROEN", color: "#4CAF50", family: "nl" }
 ];
+
+// Political left-to-right seating order used by the hemicycle visual.
+const HEMICYCLE_ORDER = ["ptb", "ps", "vooruit", "groen", "ecolo", "defi", "le", "cdv", "openvld", "mr", "nva", "vb"];
 
 let parties = [...DEFAULT_PARTIES];
 let districts = {};
@@ -168,6 +174,12 @@ function dominantPartyColor(district) {
   const winner = district.winner;
   if (!winner) return "#cbd5e1";
   return parties.find(p => p.id === winner)?.color || "#cbd5e1";
+}
+
+function getAllowedParties(district) {
+  const lang = district.language || "both";
+  if (lang === "both") return parties;
+  return parties.filter(p => p.family === "both" || p.family === lang);
 }
 
 function fetchGeoJson() {
@@ -329,8 +341,9 @@ function renderLegend() {
 function renderPartyInputs() {
   const district = districts[selectedDistrictKey];
   const container = document.getElementById("partyInputs");
+  const allowed = getAllowedParties(district);
 
-  container.innerHTML = parties.map(p => {
+  container.innerHTML = allowed.map(p => {
     const value = Number(district.percentages[p.id] || 0);
     const preview = Number(district.seatsByParty[p.id] || 0);
     return `
@@ -464,17 +477,23 @@ function addParty() {
 
 function fillEvenly() {
   const district = districts[selectedDistrictKey];
-  const share = 100 / parties.length;
+  const allowed = getAllowedParties(district);
+  if (allowed.length === 0) {
+    showToast("Aucun parti disponible pour cette circonscription.");
+    return;
+  }
 
-  for (const p of parties) district.percentages[p.id] = Number(share.toFixed(2));
+  const share = 100 / allowed.length;
+  for (const p of parties) district.percentages[p.id] = 0;
+  for (const p of allowed) district.percentages[p.id] = Number(share.toFixed(2));
 
-  // Correct the rounding residue on the first party.
+  // Correct the rounding residue on the first allowed party.
   const sum = districtTotal(district);
-  district.percentages[parties[0].id] += Number((100 - sum).toFixed(2));
+  district.percentages[allowed[0].id] += Number((100 - sum).toFixed(2));
 
   calculateDistrict(district);
   renderAll();
-  showToast("Répartition égale appliquée.");
+  showToast("Répartition égale appliquée aux partis disponibles ici.");
 }
 
 function selectDistrict(key) {
