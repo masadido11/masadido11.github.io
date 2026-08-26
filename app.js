@@ -1,5 +1,6 @@
 const CONFIG = {
   geojsonPath: "data/be.json",
+  geojsonFallbackPath: "be.json",
   threshold: 5,
   totalSeats: 150,
   districts: {
@@ -35,168 +36,237 @@ const OPTIONAL_DEFAULT_PARTIES = [
 let parties = [...DEFAULT_PARTIES, ...OPTIONAL_DEFAULT_PARTIES];
 let districts = {};
 let selectedDistrictKey = "Antwerp";
-let mapSvg;
-let geoJsonData;
+let map;
+let geoJsonLayer;
 let featureByKey = new Map();
 
-function getGeometryRings(geometry) {
-  if (!geometry) return [];
-  if (geometry.type === "Polygon") return geometry.coordinates;
-  if (geometry.type === "MultiPolygon") return geometry.coordinates.flat();
-  return [];
+const money = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 1 });
+
+function makeBlankResult() {
+  return Object.fromEntries(parties.map(p => [p.id, 0]));
 }
 
-function getAllCoordinates(geojson) {
-  const coords = [];
-  for (const feature of geojson.features) {
-    for (const ring of getGeometryRings(feature.geometry)) {
-      for (const point of ring) coords.push(point);
+function initializeDistricts() {
+  districts = {};
+  for (const key of Object.keys(CONFIG.districts)) {
+    districts[key] = {
+      ...CONFIG.districts[key],
+      percentages: makeBlankResult(),
+      seatsByParty: makeBlankResult(),
+      winner: null
+    };
+  }
+}
+
+function slugDistrict(name) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-");
+}
+
+function getDistrictFromFeature(feature) {
+  const name = feature?.properties?.name;
+  if (name && CONFIG.districts[name]) return name;
+
+  const slug = slugDistrict(name || "");
+  for (const [key, info] of Object.entries(CONFIG.districts)) {
+    if (slugDistrict(key) === slug || info.id === slug) return key;
+  }
+  return null;
+}
+
+function dHondt(percentages, seatCount, threshold = CONFIG.threshold) {
+  const eligible = Object.entries(percentages)
+    .map(([partyId, pct]) => [partyId, Number(pct) || 0])
+    .filter(([, pct]) => pct >= threshold && pct > 0);
+
+  const allocations = Object.fromEntries(Object.keys(percentages).map(id => [id, 0]));
+  const quotients = [];
+
+  for (const [partyId, votes] of eligible) {
+    for (let divisor = 1; divisor <= seatCount; divisor++) {
+      quotients.push({ partyId, value: votes / divisor });
     }
   }
-  return coords;
-}
 
-function projectPoint([lon, lat], bounds, width, height, padding = 26) {
-  const [minLon, minLat, maxLon, maxLat] = bounds;
-  const x = padding + ((lon - minLon) / (maxLon - minLon || 1)) * (width - padding * 2);
-  // Latitude grows upward; SVG grows downward.
-  const y = height - padding - ((lat - minLat) / (maxLat - minLat || 1)) * (height - padding * 2);
-  return [x, y];
-}
+  // The official system works with vote figures and quotients.
+  // Percentages are valid here because all parties share the same total.
+  quotients.sort((a, b) => {
+    if (b.value !== a.value) return b.value - a.value;
+    return a.partyId.localeCompare(b.partyId);
+  });
 
-function ringToPath(ring, bounds, width, height) {
-  return ring.map((point, i) => {
-    const [x, y] = projectPoint(point, bounds, width, height);
-    return `${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-  }).join(" ") + " Z";
-}
-
-function geometryToPath(geometry, bounds, width, height) {
-  const rings = getGeometryRings(geometry);
-  return rings.map(ring => ringToPath(ring, bounds, width, height)).join(" ");
-}
-
-function centroidOfFeature(feature) {
-  const points = [];
-  for (const ring of getGeometryRings(feature.geometry)) {
-    for (const point of ring) points.push(point);
+  for (let i = 0; i < Math.min(seatCount, quotients.length); i++) {
+    allocations[quotients[i].partyId] += 1;
   }
-  const lon = points.reduce((s, p) => s + p[0], 0) / Math.max(1, points.length);
-  const lat = points.reduce((s, p) => s + p[1], 0) / Math.max(1, points.length);
-  return [lon, lat];
+
+  return allocations;
+}
+
+function sanitizePercent(value) {
+  const n = Number(String(value).replace(",", "."));
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(100, Math.max(0, n));
+}
+
+function calculateDistrict(district) {
+  const total = Object.values(district.percentages).reduce((a, b) => a + Number(b || 0), 0);
+
+  if (Math.abs(total - 100) > 0.01) {
+    district.seatsByParty = makeBlankResult();
+    district.winner = getWinner(district.percentages);
+    return false;
+  }
+
+  district.seatsByParty = dHondt(district.percentages, district.seats);
+  district.winner = getWinner(district.percentages);
+  return true;
+}
+
+function getWinner(percentages) {
+  let winner = null;
+  for (const p of parties) {
+    const value = Number(percentages[p.id] || 0);
+    if (winner === null || value > winner.value) {
+      winner = { partyId: p.id, value };
+    }
+  }
+  return winner && winner.value > 0 ? winner.partyId : null;
+}
+
+function calculateAll() {
+  let valid = true;
+  for (const district of Object.values(districts)) {
+    valid = calculateDistrict(district) && valid;
+  }
+  renderAll();
+  if (!valid) {
+    showToast("Certaines circonscriptions ne totalisent pas 100 %.");
+  } else {
+    showToast("Répartition calculée avec le seuil de 5 % et D'Hondt.");
+  }
+}
+
+function nationalSeats() {
+  const totals = Object.fromEntries(parties.map(p => [p.id, 0]));
+  for (const district of Object.values(districts)) {
+    for (const p of parties) totals[p.id] += district.seatsByParty[p.id] || 0;
+  }
+  return totals;
+}
+
+function districtTotal(district) {
+  return Object.values(district.percentages).reduce((a, b) => a + Number(b || 0), 0);
+}
+
+function dominantPartyColor(district) {
+  const winner = district.winner;
+  if (!winner) return "#cbd5e1";
+  return parties.find(p => p.id === winner)?.color || "#cbd5e1";
+}
+
+function fetchGeoJson() {
+  return fetch(CONFIG.geojsonPath)
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status} sur ${CONFIG.geojsonPath}`);
+      return response.json();
+    })
+    .catch(primaryError => {
+      console.warn(`Échec de chargement de ${CONFIG.geojsonPath} (${primaryError.message}). Essai de ${CONFIG.geojsonFallbackPath}...`);
+      return fetch(CONFIG.geojsonFallbackPath).then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status} sur ${CONFIG.geojsonFallbackPath}`);
+        return response.json();
+      });
+    });
 }
 
 function buildMap() {
-  const mapEl = document.getElementById("map");
-  mapEl.innerHTML = `
-    <svg id="provinceMap" class="province-map" viewBox="0 0 900 720"
-         preserveAspectRatio="xMidYMid meet"
-         aria-label="Carte interactive des circonscriptions belges"
-         role="img">
-      <rect x="0" y="0" width="900" height="720" fill="#dbeafe"></rect>
-      <g id="provinceLayer"></g>
-    </svg>
-  `;
+  map = L.map("map", {
+    zoomControl: true,
+    attributionControl: true,
+    minZoom: 7,
+    maxZoom: 10
+  }).setView([50.65, 4.55], 8);
 
-  mapSvg = document.getElementById("provinceMap");
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-  fetch(CONFIG.geojsonPath)
-    .then(response => {
-      if (!response.ok) throw new Error(`GeoJSON HTTP ${response.status}`);
-      return response.json();
-    })
+  fetchGeoJson()
     .then(geojson => {
-      geoJsonData = geojson;
-      renderGeoJsonMap();
+      geoJsonLayer = L.geoJSON(geojson, {
+        style: featureStyle,
+        onEachFeature: (feature, layer) => {
+          const key = getDistrictFromFeature(feature);
+          if (!key) return;
+
+          featureByKey.set(key, layer);
+          layer.options.className = "province-path";
+
+          layer.on({
+            click: () => selectDistrict(key),
+            mouseover: e => {
+              e.target.setStyle({ weight: 2.5, fillOpacity: 0.9 });
+              e.target.bringToFront();
+            },
+            mouseout: e => {
+              geoJsonLayer.resetStyle(e.target);
+            }
+          });
+
+          layer.bindTooltip(CONFIG.districts[key].name, {
+            sticky: true,
+            direction: "center",
+            className: "province-tooltip"
+          });
+        }
+      }).addTo(map);
+
+      map.fitBounds(geoJsonLayer.getBounds(), { padding: [18, 18] });
+      renderMap();
       selectDistrict("Antwerp");
     })
     .catch(error => {
       console.error(error);
-      mapEl.innerHTML = `
-        <div style="height:100%;min-height:650px;display:grid;place-items:center;padding:24px;text-align:center;color:#991b1b;background:#fef2f2">
-          <div>
-            <strong>Impossible de charger la carte.</strong>
-            <p style="margin:8px 0 0;font-size:13px">Vérifie que <code>data/be.json</code> est bien présent dans le repository.</p>
-          </div>
-        </div>
-      `;
-      showToast("Impossible de charger data/be.json.");
+      showToast(`Impossible de charger le fichier de carte (${error.message}).`);
     });
 }
 
-function renderGeoJsonMap() {
-  const width = 900;
-  const height = 720;
-  const coordinates = getAllCoordinates(geoJsonData);
-  const lons = coordinates.map(p => p[0]);
-  const lats = coordinates.map(p => p[1]);
-  const bounds = [
-    Math.min(...lons),
-    Math.min(...lats),
-    Math.max(...lons),
-    Math.max(...lats)
-  ];
-
-  const layer = document.getElementById("provinceLayer");
-  layer.innerHTML = "";
-  featureByKey.clear();
-
-  for (const feature of geoJsonData.features) {
-    const key = getDistrictFromFeature(feature);
-    if (!key) continue;
-
-    const district = districts[key];
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", geometryToPath(feature.geometry, bounds, width, height));
-    path.setAttribute("class", "province-path");
-    path.dataset.district = key;
-    path.setAttribute("fill", dominantPartyColor(district));
-    path.setAttribute("fill-opacity", "0.82");
-    path.setAttribute("stroke", "#ffffff");
-    path.setAttribute("stroke-width", "2");
-    path.setAttribute("vector-effect", "non-scaling-stroke");
-    path.setAttribute("title", district.name);
-
-    path.addEventListener("click", () => selectDistrict(key));
-    path.addEventListener("mouseenter", () => {
-      path.setAttribute("stroke", "#0f172a");
-      path.setAttribute("stroke-width", key === selectedDistrictKey ? "3.5" : "3");
-    });
-    path.addEventListener("mouseleave", () => {
-      path.setAttribute("stroke", key === selectedDistrictKey ? "#0f172a" : "#ffffff");
-      path.setAttribute("stroke-width", key === selectedDistrictKey ? "3.5" : "2");
-    });
-
-    layer.appendChild(path);
-    featureByKey.set(key, path);
-
-    const [lon, lat] = centroidOfFeature(feature);
-    const [x, y] = projectPoint([lon, lat], bounds, width, height);
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    label.setAttribute("x", x.toFixed(2));
-    label.setAttribute("y", y.toFixed(2));
-    label.setAttribute("class", "province-label");
-    label.setAttribute("text-anchor", "middle");
-    label.setAttribute("dominant-baseline", "middle");
-    label.textContent = district.name;
-    layer.appendChild(label);
-  }
-
-  renderMap();
+function featureStyle(feature) {
+  const key = getDistrictFromFeature(feature);
+  const district = key ? districts[key] : null;
+  return {
+    color: "#ffffff",
+    weight: 1.25,
+    fillColor: district ? dominantPartyColor(district) : "#cbd5e1",
+    fillOpacity: 0.75
+  };
 }
 
 function renderMap() {
-  if (!geoJsonData) return;
+  if (!geoJsonLayer) return;
 
-  for (const [key, path] of featureByKey.entries()) {
+  geoJsonLayer.eachLayer(layer => {
+    const feature = layer.feature;
+    const key = getDistrictFromFeature(feature);
     const district = districts[key];
-    const selected = key === selectedDistrictKey;
-    path.setAttribute("fill", dominantPartyColor(district));
-    path.setAttribute("fill-opacity", selected ? "0.95" : "0.82");
-    path.setAttribute("stroke", selected ? "#0f172a" : "#ffffff");
-    path.setAttribute("stroke-width", selected ? "3.5" : "2");
-    path.setAttribute("aria-label", `${district.name}, ${district.seats} sièges`);
-  }
+
+    layer.setStyle({
+      color: key === selectedDistrictKey ? "#0f172a" : "#ffffff",
+      weight: key === selectedDistrictKey ? 3 : 1.25,
+      fillColor: dominantPartyColor(district),
+      fillOpacity: key === selectedDistrictKey ? 0.92 : 0.75
+    });
+
+    const status = districtTotal(district);
+    layer.setTooltipContent(
+      `<strong>${district.name}</strong><br>${district.seats} sièges<br>${status.toFixed(1)} % saisi`
+    );
+  });
 
   renderLegend();
 }
@@ -363,6 +433,8 @@ function selectDistrict(key) {
   updateInputSummary(false);
   renderMap();
 
+  const layer = featureByKey.get(key);
+  if (layer && map) map.fitBounds(layer.getBounds(), { maxZoom: 9, padding: [24, 24], animate: true });
 }
 
 function resetSimulation() {
