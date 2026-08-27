@@ -95,7 +95,7 @@ button, input { font: inherit; }
 }
 
 .map-panel {
-  min-height: 460px;
+  min-height: 960px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -133,7 +133,7 @@ button, input { font: inherit; }
 
 #map {
   flex: 1;
-  min-height: 350px;
+  min-height: 950px;
   background: #dbeafe;
 }
 
