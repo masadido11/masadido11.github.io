@@ -76,12 +76,12 @@ button, input { font: inherit; }
 }
 
 .hemicycle-panel {
-  grid-column: 2 / -1;
+  grid-column: 1 / -1;
   overflow: hidden;
 }
 
 .hemicycle-svg {
-  width: 100%;
+  width: 50%;
   height: auto;
   display: block;
   padding: 4px 10px 14px;
