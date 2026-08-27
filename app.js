@@ -47,6 +47,18 @@ const DEFAULT_PARTIES = [
   { id: "groen", name: "Groen", short: "GROEN", color: "#4CAF50", family: "nl" }
 ];
 
+// Bucket used only for importing 2024 "other" votes.
+// Hidden from the normal party UI, but kept in the district data so the
+// 2024 preset can be reproduced without deleting custom parties.
+const OTHER_2024_PARTY = {
+  id: "other2024",
+  name: "Autres (2024)",
+  short: "AUT",
+  color: "#94a3b8",
+  family: "both",
+  hidden: true
+};
+
 // Political left-to-right seating order used by the hemicycle visual.
 const HEMICYCLE_ORDER = ["ptb", "ps", "vooruit", "groen", "ecolo", "defi", "le", "cdv", "openvld", "mr", "nva", "vb"];
 
