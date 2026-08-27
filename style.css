@@ -76,7 +76,7 @@ button, input { font: inherit; }
 }
 
 .hemicycle-panel {
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
   overflow: hidden;
 }
 
