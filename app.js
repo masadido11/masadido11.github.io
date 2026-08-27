@@ -50,7 +50,7 @@ const DEFAULT_PARTIES = [
 // Political left-to-right seating order used by the hemicycle visual.
 const HEMICYCLE_ORDER = ["ptb", "ps", "vooruit", "groen", "ecolo", "defi", "le", "cdv", "openvld", "mr", "nva", "vb"];
 
-let parties = [...DEFAULT_PARTIES, OTHER_2024_PARTY];
+let parties = [...DEFAULT_PARTIES];
 let districts = {};
 let selectedDistrictKey = "Antwerp";
 let map;
@@ -59,30 +59,6 @@ let germanCommunityMarker;
 let featureByKey = new Map();
 
 const money = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 1 });
-
-// Official 2024 federal election percentages by constituency.
-// Source: Wikipedia's constituency summary/results tables.
-// Brussels 2024 used joint lists (MR/Open VLD, PS/Vooruit, Ecolo/Groen,
-// Les Engagés/CD&V); for the simulator those joint-list percentages are
-// loaded onto the first named party so D'Hondt treats the cartel as one list.
-const RESULTS_2024 = {
-  "Antwerp": { nva:30.97, vb:20.97, vooruit:10.74, cdv:10.57, ptb:10.52, groen:7.59, openvld:5.95, other:2.69 },
-  "Flemish Brabant": { nva:25.52, vb:16.65, vooruit:13.69, cdv:13.04, openvld:11.68, ptb:8.04, groen:8.01, other:3.37 },
-  "West Flanders": { vb:24.52, nva:23.22, vooruit:16.62, cdv:14.68, openvld:7.96, groen:5.50, ptb:5.34, other:2.16 },
-  "East Flanders": { vb:22.61, nva:22.29, vooruit:12.30, cdv:12.12, openvld:11.48, groen:9.99, ptb:7.31, other:1.91 },
-  "Limburg": { vb:24.62, nva:23.68, cdv:15.73, vooruit:13.04, ptb:9.07, openvld:7.11, groen:4.79, other:1.97 },
-  "Walloon Brabant": { mr:35.31, le:22.66, ps:12.39, ecolo:9.20, ptb:7.89, defi:3.41, other:9.14 },
-  "Hainaut": { ps:28.86, mr:26.05, le:15.48, ptb:13.97, ecolo:4.97, defi:2.05, other:8.62 },
-  "Liege": { mr:28.37, ps:21.75, le:16.41, ptb:14.43, ecolo:7.90, defi:2.19, other:8.95 },
-  "Luxembourg": { le:32.09, mr:30.90, ps:16.81, ecolo:7.70, ptb:0, defi:2.27, other:10.23 },
-  "Namur": { le:29.05, mr:25.64, ps:16.95, ptb:10.08, ecolo:7.05, defi:2.61, other:8.62 },
-  // Brussels: cartel/list percentages.
-  "Brussels": {
-    mr:23.15, ps:18.60, ptb:16.75, ecolo:11.30, le:9.52, defi:6.58,
-    nva:2.79, vb:2.46, other:8.85
-  }
-};
-
 
 function makeBlankResult() {
   return Object.fromEntries(parties.map(p => [p.id, 0]));
@@ -372,7 +348,7 @@ function renderLegend() {
 function renderPartyInputs() {
   const district = districts[selectedDistrictKey];
   const container = document.getElementById("partyInputs");
-  const allowed = getAllowedParties(district).filter(p => !p.hidden);
+  const allowed = getAllowedParties(district);
 
   container.innerHTML = allowed.map(p => {
     const value = Number(district.percentages[p.id] || 0);
@@ -436,7 +412,7 @@ function updateInputSummary(recalculate = false) {
 
 function renderPartyList() {
   const list = document.getElementById("partyList");
-  list.innerHTML = parties.filter(p => !p.hidden).map((p, index) => `
+  list.innerHTML = parties.map((p, index) => `
     <div class="party-config-row">
       <div class="party-config">
         <span class="mini-color" style="background:${p.color}"></span>
@@ -548,32 +524,6 @@ function fillEvenly() {
   calculateDistrict(district);
   renderAll();
   showToast("Répartition égale appliquée aux partis disponibles ici.");
-}
-
-function loadResults2024() {
-  const district = districts[selectedDistrictKey];
-  const preset = RESULTS_2024[selectedDistrictKey];
-
-  if (!preset) {
-    showToast("Aucun résultat 2024 disponible pour cette circonscription.");
-    return;
-  }
-
-  // Clear every party first, including custom parties.
-  for (const p of parties) district.percentages[p.id] = 0;
-
-  for (const [partyId, value] of Object.entries(preset)) {
-    if (partyId === "other") continue;
-    if (Object.prototype.hasOwnProperty.call(district.percentages, partyId)) {
-      district.percentages[partyId] = Number(value);
-    }
-  }
-
-  district.percentages[OTHER_2024_PARTY.id] = Number(preset.other || 0);
-
-  calculateDistrict(district);
-  renderAll();
-  showToast(`Résultats fédéraux 2024 chargés pour ${district.name}.`);
 }
 
 function selectDistrict(key) {
@@ -724,7 +674,7 @@ function renderNationalResults() {
 
   document.getElementById("nationalTotal").textContent = `${used} / ${CONFIG.totalSeats}`;
 
-  const results = parties.filter(p => !p.hidden)
+  const results = parties
     .map(p => ({ ...p, seats: totals[p.id] || 0 }))
     .sort((a, b) => b.seats - a.seats || a.name.localeCompare(b.name));
 
@@ -780,7 +730,6 @@ function showToast(message) {
 document.getElementById("calculateBtn").addEventListener("click", calculateAll);
 document.getElementById("resetBtn").addEventListener("click", resetSimulation);
 document.getElementById("fillEvenBtn").addEventListener("click", fillEvenly);
-document.getElementById("load2024Btn").addEventListener("click", loadResults2024);
 document.getElementById("addPartyBtn").addEventListener("click", addParty);
 
 document.getElementById("newPartyName").addEventListener("keydown", e => {

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Belgian Election Simulator — V1</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -40,10 +42,7 @@
             <p><span id="selectedSeats">24</span> sièges · <span id="selectedStatus">0 % saisi</span></p>
             <p id="selectedNote" class="warning hidden"></p>
           </div>
-          <div class="header-buttons">
-            <button id="fillEvenBtn" class="button button-small button-secondary">Répartir également</button>
-            <button id="load2024Btn" class="button button-small button-secondary">Résultats 2024</button>
-          </div>
+          <button id="fillEvenBtn" class="button button-small button-secondary">Répartir également</button>
         </div>
         <div id="partyInputs" class="party-inputs"></div>
         <div class="input-summary">
@@ -104,7 +103,9 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
   <script src="app.js"></script>
 </body>
 </html>
