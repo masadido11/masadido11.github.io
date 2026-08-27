@@ -133,7 +133,7 @@ button, input { font: inherit; }
 
 #map {
   flex: 1;
-  min-height: 650px;
+  min-height: 350px;
   background: #dbeafe;
 }
 
