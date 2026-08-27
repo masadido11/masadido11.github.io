@@ -63,6 +63,11 @@
         <div class="add-party-row">
           <input id="newPartyName" type="text" placeholder="Nom du parti">
           <input id="newPartyShort" type="text" maxlength="8" placeholder="Sigle">
+          <select id="newPartyFamily" aria-label="Camp linguistique">
+            <option value="fr">Francophone</option>
+            <option value="nl">Flamand</option>
+            <option value="both" selected>National / Bxl</option>
+          </select>
           <input id="newPartyColor" type="color" value="#64748b" aria-label="Couleur du parti">
           <button id="addPartyBtn" class="button button-primary button-small">Ajouter</button>
         </div>
@@ -79,6 +84,16 @@
         <div id="nationalResults" class="national-results"></div>
       </section>
     </aside>
+
+    <section class="card hemicycle-panel">
+      <div class="panel-title">
+        <div>
+          <h2>Hémicycle</h2>
+          <span>Répartition visuelle des 150 sièges de la Chambre, de gauche à droite.</span>
+        </div>
+      </div>
+      <svg id="hemicycleSvg" viewBox="0 0 600 330" class="hemicycle-svg" role="img" aria-label="Hémicycle de la Chambre des représentants"></svg>
+    </section>
   </main>
 
   <footer>

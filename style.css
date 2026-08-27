@@ -75,6 +75,18 @@ button, input { font: inherit; }
   gap: 18px;
 }
 
+.hemicycle-panel {
+  grid-column: 1 / -1;
+  overflow: hidden;
+}
+
+.hemicycle-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  padding: 4px 10px 14px;
+}
+
 .map-panel, .card {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -248,9 +260,19 @@ button, input { font: inherit; }
 
 .party-config-row {
   display: grid;
-  grid-template-columns: 1fr 68px 32px;
-  gap: 8px;
+  grid-template-columns: 1fr 64px 68px 32px;
+  gap: 6px;
   align-items: center;
+}
+
+.party-config-row select,
+.add-party-row select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 6px;
+  background: #fff;
+  font-size: 12px;
+  min-width: 0;
 }
 
 .party-config {
@@ -284,7 +306,7 @@ button, input { font: inherit; }
 .add-party-row {
   padding: 10px 16px 16px;
   display: grid;
-  grid-template-columns: 1fr 76px 42px auto;
+  grid-template-columns: 1fr 66px 92px 42px auto;
   gap: 7px;
 }
 
@@ -391,7 +413,9 @@ footer {
   .topbar { align-items: flex-start; flex-direction: column; }
   .party-row { grid-template-columns: 1fr 84px; }
   .party-seat-preview { grid-column: 1 / -1; text-align: left; }
+  .party-config-row { grid-template-columns: 1fr 60px 30px; }
   .add-party-row { grid-template-columns: 1fr 70px; }
+  .add-party-row select,
   .add-party-row input[type="color"] { width: 100%; }
   .add-party-row button { grid-column: 1 / -1; }
   footer { flex-direction: column; }

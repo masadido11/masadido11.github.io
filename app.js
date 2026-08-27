@@ -179,7 +179,7 @@ function dominantPartyColor(district) {
 function getAllowedParties(district) {
   const lang = district.language || "both";
   if (lang === "both") return parties;
-  return parties.filter(p => p.family === "both" || p.family === lang);
+  return parties.filter(p => (p.family || "both") === "both" || p.family === lang);
 }
 
 function fetchGeoJson() {
@@ -209,6 +209,12 @@ function buildMap() {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
+
+  // Dedicated pane with a higher z-index than the default overlayPane (400),
+  // so the German community marker always stays above every province polygon —
+  // even after a province is raised via bringToFront() on hover.
+  map.createPane("germanCommunityPane");
+  map.getPane("germanCommunityPane").style.zIndex = 650;
 
   fetchGeoJson()
     .then(geojson => {
@@ -254,6 +260,7 @@ function buildMap() {
 function buildGermanCommunityMarker() {
   const key = "GermanCommunity";
   germanCommunityMarker = L.circleMarker(GERMAN_COMMUNITY_LATLNG, {
+    pane: "germanCommunityPane",
     radius: 11,
     weight: 2,
     dashArray: "3,2",
@@ -412,6 +419,11 @@ function renderPartyList() {
         <strong>${escapeHtml(p.name)}</strong>
         <small>${escapeHtml(p.short)}</small>
       </div>
+      <select data-family-id="${p.id}" aria-label="Camp linguistique de ${escapeHtml(p.name)}">
+        <option value="fr" ${p.family === "fr" ? "selected" : ""}>FR</option>
+        <option value="nl" ${p.family === "nl" ? "selected" : ""}>NL</option>
+        <option value="both" ${!p.family || p.family === "both" ? "selected" : ""}>National</option>
+      </select>
       <input type="color" value="${p.color}" data-color-id="${p.id}" aria-label="Couleur ${escapeHtml(p.name)}">
       <button class="delete-party" data-delete-id="${p.id}" title="Supprimer ${escapeHtml(p.name)}" ${parties.length <= 1 ? "disabled" : ""}>×</button>
     </div>
@@ -422,6 +434,15 @@ function renderPartyList() {
       const party = parties.find(p => p.id === input.dataset.colorId);
       if (!party) return;
       party.color = input.value;
+      renderAll();
+    });
+  });
+
+  list.querySelectorAll("[data-family-id]").forEach(select => {
+    select.addEventListener("change", () => {
+      const party = parties.find(p => p.id === select.dataset.familyId);
+      if (!party) return;
+      party.family = select.value;
       renderAll();
     });
   });
@@ -450,10 +471,12 @@ function removeParty(id) {
 function addParty() {
   const nameInput = document.getElementById("newPartyName");
   const shortInput = document.getElementById("newPartyShort");
+  const familyInput = document.getElementById("newPartyFamily");
   const colorInput = document.getElementById("newPartyColor");
 
   const name = nameInput.value.trim();
   const short = (shortInput.value.trim() || name.slice(0, 5)).toUpperCase();
+  const family = familyInput.value || "both";
   const color = colorInput.value;
 
   if (!name) {
@@ -462,7 +485,7 @@ function addParty() {
   }
 
   const id = slugDistrict(`${name}-${Date.now()}`);
-  parties.push({ id, name, short, color });
+  parties.push({ id, name, short, color, family });
 
   for (const district of Object.values(districts)) {
     district.percentages[id] = 0;
@@ -471,8 +494,15 @@ function addParty() {
 
   nameInput.value = "";
   shortInput.value = "";
+  familyInput.value = "both";
   renderAll();
-  showToast(`${name} a été ajouté à toutes les circonscriptions.`);
+  showToast(`${name} a été ajouté (${familyLabel(family)}).`);
+}
+
+function familyLabel(family) {
+  if (family === "fr") return "francophone";
+  if (family === "nl") return "flamand";
+  return "national";
 }
 
 function fillEvenly() {
@@ -534,6 +564,109 @@ function resetSimulation() {
   showToast("Simulation réinitialisée.");
 }
 
+function computeHemicycleRows(total, rowCount) {
+  const minR = 62;
+  const maxR = 230;
+  const step = rowCount > 1 ? (maxR - minR) / (rowCount - 1) : 0;
+  const radii = Array.from({ length: rowCount }, (_, i) => minR + step * i);
+
+  const rawSum = radii.reduce((a, b) => a + b, 0);
+  const seatsPerRow = radii.map(r => Math.max(1, Math.round((total * r) / rawSum)));
+
+  let diff = total - seatsPerRow.reduce((a, b) => a + b, 0);
+  let idx = rowCount - 1;
+  let guard = 0;
+  while (diff !== 0 && guard < 10000) {
+    if (diff > 0) {
+      seatsPerRow[idx] += 1;
+      diff -= 1;
+    } else if (seatsPerRow[idx] > 1) {
+      seatsPerRow[idx] -= 1;
+      diff += 1;
+    }
+    idx = (idx - 1 + rowCount) % rowCount;
+    guard += 1;
+  }
+
+  return { radii, seatsPerRow };
+}
+
+// Left-to-right ideological ordering used to build the wedge of seats.
+// Custom/user-added parties fall back to a position based on their language family.
+function orderedSeatSequence() {
+  const totals = nationalSeats();
+
+  const scored = parties.map(p => {
+    const knownIndex = HEMICYCLE_ORDER.indexOf(p.id);
+    let score;
+    if (knownIndex !== -1) {
+      score = knownIndex;
+    } else if (p.family === "both") {
+      score = -1; // unclassified national parties default next to the hard-left bloc
+    } else if (p.family === "nl") {
+      score = HEMICYCLE_ORDER.indexOf("cdv") + 0.5;
+    } else {
+      score = HEMICYCLE_ORDER.indexOf("le") + 0.5;
+    }
+    return { party: p, score };
+  });
+
+  scored.sort((a, b) => a.score - b.score);
+
+  const sequence = [];
+  for (const { party } of scored) {
+    const seatCount = totals[party.id] || 0;
+    for (let i = 0; i < seatCount; i++) sequence.push(party);
+  }
+  return sequence;
+}
+
+function renderHemicycle() {
+  const svg = document.getElementById("hemicycleSvg");
+  if (!svg) return;
+
+  const total = CONFIG.totalSeats;
+  const rowCount = 9;
+  const { radii, seatsPerRow } = computeHemicycleRows(total, rowCount);
+
+  const cx = 300;
+  const cy = 300;
+
+  // Generate every seat's (x, y, angle), regardless of row.
+  const points = [];
+  radii.forEach((r, rowIndex) => {
+    const count = seatsPerRow[rowIndex];
+    for (let i = 0; i < count; i++) {
+      const angle = Math.PI - (Math.PI * (i + 0.5)) / count;
+      points.push({
+        x: cx + r * Math.cos(angle),
+        y: cy - r * Math.sin(angle),
+        angle
+      });
+    }
+  });
+
+  // Sort seats left-to-right by angle so parties form contiguous wedges,
+  // then paint them in political left-to-right order — the standard technique
+  // behind real parliament diagrams.
+  points.sort((a, b) => b.angle - a.angle);
+
+  const sequence = orderedSeatSequence();
+
+  const circles = points.map((pt, i) => {
+    const party = sequence[i];
+    const color = party ? party.color : "#e2e8f0";
+    const label = party ? escapeHtml(party.name) : "Siège non attribué";
+    return `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="6.4" fill="${color}" stroke="#ffffff" stroke-width="1"><title>${label}</title></circle>`;
+  }).join("");
+
+  const used = sequence.length;
+  svg.innerHTML = `
+    ${circles}
+    <text x="300" y="316" text-anchor="middle" font-size="15" font-weight="700" fill="#152033">${used} / ${total} sièges attribués</text>
+  `;
+}
+
 function renderNationalResults() {
   const totals = nationalSeats();
   const maxSeats = Math.max(1, ...Object.values(totals));
@@ -573,6 +706,7 @@ function renderAll() {
   renderPartyList();
   renderPartyInputs();
   renderNationalResults();
+  renderHemicycle();
   renderMap();
   updateInputSummary(false);
 }
