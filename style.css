@@ -70,6 +70,10 @@ button, input { font: inherit; }
   max-width: 1500px;
   margin: 18px auto;
   padding: 0 18px 18px;
+  display: block;
+}
+
+.simulator-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.75fr);
   gap: 18px;
@@ -102,6 +106,7 @@ button, input { font: inherit; }
   position: sticky;
   top: 18px;
   align-self: start;
+  height: calc(100vh - 36px);
   max-height: calc(100vh - 36px);
 }
 
@@ -138,6 +143,7 @@ button, input { font: inherit; }
 #map {
   flex: 1;
   min-height: 650px;
+  height: 0;
   background: #dbeafe;
 }
 
@@ -408,13 +414,14 @@ footer {
 }
 
 @media (max-width: 1000px) {
-  .layout { grid-template-columns: 1fr; }
+  .simulator-grid { grid-template-columns: 1fr; }
   .map-panel {
     min-height: 600px;
+    height: auto;
     max-height: none;
     position: static;
   }
-  #map { min-height: 520px; }
+  #map { min-height: 520px; height: 520px; }
 }
 
 @media (max-width: 620px) {
@@ -428,3 +435,5 @@ footer {
   .add-party-row button { grid-column: 1 / -1; }
   footer { flex-direction: column; }
 }
+
+.header-buttons { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
