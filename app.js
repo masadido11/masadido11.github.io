@@ -739,6 +739,10 @@ document.getElementById("newPartyShort").addEventListener("keydown", e => {
   if (e.key === "Enter") addParty();
 });
 
+window.addEventListener("resize", () => {
+  if (map) map.invalidateSize();
+});
+
 initializeDistricts();
 buildMap();
 renderAll();
