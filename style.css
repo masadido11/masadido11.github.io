@@ -428,3 +428,5 @@ footer {
   .add-party-row button { grid-column: 1 / -1; }
   footer { flex-direction: column; }
 }
+
+.header-buttons { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
