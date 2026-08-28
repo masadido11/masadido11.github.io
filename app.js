@@ -35,7 +35,7 @@ const GERMAN_COMMUNITY_LATLNG = [50.6296, 6.0296];
 const DEFAULT_PARTIES = [
   { id: "mr", name: "MR", short: "MR", color: "#0B3D91", family: "fr" },
   { id: "ps", name: "PS", short: "PS", color: "#E4032E", family: "fr" },
-  { id: "le", name: "Les Engagés", short: "LE", color: "#F5A623", family: "fr" },
+  { id: "le", name: "Les Engagés", short: "LE", color: "#35FCDB", family: "fr" },
   { id: "ecolo", name: "Ecolo", short: "ECOLO", color: "#3C8E3C", family: "fr" },
   { id: "defi", name: "Défi", short: "DÉFI", color: "#EC008C", family: "fr" },
   { id: "ptb", name: "PTB/PVDA", short: "PTB", color: "#8B1E3F", family: "both" },
