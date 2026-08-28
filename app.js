@@ -50,6 +50,24 @@ const DEFAULT_PARTIES = [
 // Political left-to-right seating order used by the hemicycle visual.
 const HEMICYCLE_ORDER = ["ptb", "ps", "vooruit", "groen", "ecolo", "defi", "le", "cdv", "openvld", "mr", "nva", "vb"];
 
+// Résultats réels des élections fédérales du 9 juin 2024, par circonscription (en % des voix).
+// Sources : pages Wikipédia (EN/FR) de chaque circonscription + résultats officiels SPF Intérieur.
+// Chiffres arrondis ; les petites listes locales (Team Fouad Ahidar, Voor U, etc.) ne sont pas
+// incluses car elles ne font pas partie des partis par défaut du simulateur.
+const RESULTS_2024 = {
+  "Antwerp": { nva: 30.97, vb: 20.97, vooruit: 10.74, cdv: 10.57, ptb: 10.52, groen: 7.59, openvld: 6.0 },
+  "Limburg": { vb: 24.62, nva: 23.68, cdv: 15.73, vooruit: 13.04, ptb: 9.07, openvld: 7.11, groen: 3.0 },
+  "East Flanders": { vb: 22.61, nva: 22.29, vooruit: 12.30, cdv: 12.12, openvld: 11.28, groen: 10.0, ptb: 8.0 },
+  "Flemish Brabant": { nva: 25.52, vb: 16.65, vooruit: 13.69, cdv: 13.04, openvld: 11.68, ptb: 8.04, groen: 8.01 },
+  "West Flanders": { vb: 24.52, nva: 23.22, vooruit: 16.62, cdv: 14.0, openvld: 8.0, groen: 6.0, ptb: 5.5 },
+  "Brussels": { mr: 23.2, ptb: 16.8, ps: 15.0, le: 9.5, ecolo: 8.0, defi: 6.6, groen: 3.3, vooruit: 3.6, nva: 2.8, vb: 2.5, cdv: 1.0, openvld: 1.0 },
+  "Walloon Brabant": { mr: 35.31, le: 22.66, ps: 12.39, ptb: 7.89, ecolo: 9.2, defi: 3.41 },
+  "Hainaut": { ps: 28.9, mr: 26.1, le: 15.5, ptb: 14.0, ecolo: 5.0, defi: 2.0 },
+  "Liege": { mr: 28.4, ps: 21.8, le: 16.4, ptb: 14.4, ecolo: 7.9, defi: 2.0 },
+  "Luxembourg": { le: 32.09, mr: 30.90, ps: 16.81, ptb: 7.70, defi: 3.36, ecolo: 2.27 },
+  "Namur": { le: 29.1, mr: 25.6, ps: 16.9, ptb: 10.1, ecolo: 7.1, defi: 2.0 }
+};
+
 let parties = [...DEFAULT_PARTIES];
 let districts = {};
 let selectedDistrictKey = "Antwerp";
@@ -526,6 +544,25 @@ function fillEvenly() {
   showToast("Répartition égale appliquée aux partis disponibles ici.");
 }
 
+function fillHistorical2024() {
+  const district = districts[selectedDistrictKey];
+  const data = RESULTS_2024[selectedDistrictKey];
+
+  if (!district) return;
+  if (!data) {
+    showToast("Pas de résultats 2024 disponibles pour cette circonscription.");
+    return;
+  }
+
+  for (const party of parties) {
+    district.percentages[party.id] = data[party.id] || 0;
+  }
+
+  calculateDistrict(district);
+  renderAll();
+  showToast(`Résultats 2024 chargés pour ${district.name}.`);
+}
+
 function selectDistrict(key) {
   if (!districts[key]) return;
   selectedDistrictKey = key;
@@ -730,6 +767,7 @@ function showToast(message) {
 document.getElementById("calculateBtn").addEventListener("click", calculateAll);
 document.getElementById("resetBtn").addEventListener("click", resetSimulation);
 document.getElementById("fillEvenBtn").addEventListener("click", fillEvenly);
+document.getElementById("results2024Btn").addEventListener("click", fillHistorical2024);
 document.getElementById("addPartyBtn").addEventListener("click", addParty);
 
 document.getElementById("newPartyName").addEventListener("keydown", e => {
@@ -737,6 +775,10 @@ document.getElementById("newPartyName").addEventListener("keydown", e => {
 });
 document.getElementById("newPartyShort").addEventListener("keydown", e => {
   if (e.key === "Enter") addParty();
+});
+
+window.addEventListener("resize", () => {
+  if (map) map.invalidateSize();
 });
 
 initializeDistricts();

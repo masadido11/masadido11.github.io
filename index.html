@@ -42,7 +42,10 @@
             <p><span id="selectedSeats">24</span> sièges · <span id="selectedStatus">0 % saisi</span></p>
             <p id="selectedNote" class="warning hidden"></p>
           </div>
-          <button id="fillEvenBtn" class="button button-small button-secondary">Répartir également</button>
+          <div class="header-actions">
+            <button id="fillEvenBtn" class="button button-small button-secondary">Répartir également</button>
+            <button id="results2024Btn" class="button button-small button-secondary">Résultats 2024</button>
+          </div>
         </div>
         <div id="partyInputs" class="party-inputs"></div>
         <div class="input-summary">
@@ -83,17 +86,17 @@
         </div>
         <div id="nationalResults" class="national-results"></div>
       </section>
-    </aside>
 
-    <section class="card hemicycle-panel">
-      <div class="panel-title">
-        <div>
-          <h2>Hémicycle</h2>
-          <span>Répartition visuelle des 150 sièges de la Chambre, de gauche à droite.</span>
+      <section class="card hemicycle-panel">
+        <div class="panel-title">
+          <div>
+            <h2>Hémicycle</h2>
+            <span>Répartition visuelle des 150 sièges, de gauche à droite.</span>
+          </div>
         </div>
-      </div>
-      <svg id="hemicycleSvg" viewBox="0 0 600 330" class="hemicycle-svg" role="img" aria-label="Hémicycle de la Chambre des représentants"></svg>
-    </section>
+        <svg id="hemicycleSvg" viewBox="0 0 600 330" class="hemicycle-svg" role="img" aria-label="Hémicycle de la Chambre des représentants"></svg>
+      </section>
+    </aside>
   </main>
 
   <footer>
