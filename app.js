@@ -49,9 +49,9 @@ const RESULTS_2024 = {
   "East Flanders": { vb: 22.61, nva: 22.29, vooruit: 12.30, cdv: 12.12, openvld: 11.28, groen: 10.0, ptb: 8.0 },
   "Flemish Brabant": { nva: 25.52, vb: 16.65, vooruit: 13.69, cdv: 13.04, openvld: 11.68, ptb: 8.04, groen: 8.01 },
   "West Flanders": { vb: 24.52, nva: 23.22, vooruit: 16.62, cdv: 14.0, openvld: 8.0, groen: 6.0, ptb: 5.5 },
-  "Brussels": { mr: 23.2, ptb: 16.8, ps: 15.0, le: 9.5, ecolo: 8.0, defi: 6.6, groen: 3.3, vooruit: 3.6, nva: 2.8, vb: 2.5, cdv: 1.0, openvld: 1.0 },
+  "Brussels": { mr: 23.2, ptb: 16.8, ps: 18.6, le: 9.5, ecolo: 11.3, defi: 6.6, groen: 3.3, vooruit: 3.6, nva: 2.8, vb: 2.5, cdv: 1.0, openvld: 1.0 },
   "Walloon Brabant": { mr: 35.31, le: 22.66, ps: 12.39, ptb: 7.89, ecolo: 9.2, defi: 3.41 },
-  "Hainaut": { ps: 28.9, mr: 26.1, le: 15.5, ptb: 14.0, ecolo: 5.0, defi: 2.0 },
+  "Hainaut": { ps: 28.9, mr: 26.1, le: 15.5, ptb: 14.0, ecolo: 4.0, defi: 2.0 },
   "Liege": { mr: 28.4, ps: 21.8, le: 16.4, ptb: 14.4, ecolo: 7.9, defi: 2.0 },
   "Luxembourg": { le: 32.09, mr: 30.90, ps: 16.81, ptb: 7.70, defi: 3.36, ecolo: 2.27 },
   "Namur": { le: 29.1, mr: 25.6, ps: 16.9, ptb: 10.1, ecolo: 7.1, defi: 2.0 }
