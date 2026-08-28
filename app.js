@@ -14,20 +14,9 @@ const CONFIG = {
     "Hainaut": { id: "hainaut", name: "Hainaut", seats: 17, language: "fr" },
     "Liege": { id: "liege", name: "Liège", seats: 14, language: "fr" },
     "Luxembourg": { id: "luxembourg", name: "Luxembourg", seats: 4, language: "fr" },
-    "Namur": { id: "namur", name: "Namur", seats: 7, language: "fr" },
-    "GermanCommunity": {
-      id: "german-community",
-      name: "Communauté germanophone",
-      seats: 0,
-      language: "fr",
-      indicative: true,
-      note: "Rattachée à la circonscription de Liège au niveau fédéral — saisie indicative, sans sièges propres."
-    }
+    "Namur": { id: "namur", name: "Namur", seats: 7, language: "fr" }
   }
 };
-
-// Approximate coordinates for the German-speaking Community marker (around Eupen).
-const GERMAN_COMMUNITY_LATLNG = [50.6296, 6.0296];
 
 // Partis par défaut demandés (partis traditionnels + principaux partis actuels).
 // family: "fr" = francophone (Wallonie + volet FR de Bruxelles), "nl" = flamand
@@ -74,7 +63,6 @@ let selectedDistrictKey = "Antwerp";
 let coalitionParties = new Set();
 let map;
 let geoJsonLayer;
-let germanCommunityMarker;
 let featureByKey = new Map();
 
 const money = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 1 });
@@ -235,12 +223,6 @@ function buildMap() {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  // Dedicated pane with a higher z-index than the default overlayPane (400),
-  // so the German community marker always stays above every province polygon —
-  // even after a province is raised via bringToFront() on hover.
-  map.createPane("germanCommunityPane");
-  map.getPane("germanCommunityPane").style.zIndex = 650;
-
   fetchGeoJson()
     .then(geojson => {
       geoJsonLayer = L.geoJSON(geojson, {
@@ -272,7 +254,6 @@ function buildMap() {
       }).addTo(map);
 
       map.fitBounds(geoJsonLayer.getBounds(), { padding: [18, 18] });
-      buildGermanCommunityMarker();
       renderMap();
       selectDistrict("Antwerp");
     })
@@ -280,48 +261,6 @@ function buildMap() {
       console.error(error);
       showToast(`Impossible de charger le fichier de carte (${error.message}).`);
     });
-}
-
-function buildGermanCommunityMarker() {
-  const key = "GermanCommunity";
-  germanCommunityMarker = L.circleMarker(GERMAN_COMMUNITY_LATLNG, {
-    pane: "germanCommunityPane",
-    radius: 11,
-    weight: 2,
-    dashArray: "3,2",
-    color: "#0f172a",
-    fillColor: dominantPartyColor(districts[key]),
-    fillOpacity: 0.85
-  }).addTo(map);
-
-  featureByKey.set(key, germanCommunityMarker);
-
-  germanCommunityMarker.on({
-    click: () => selectDistrict(key),
-    mouseover: e => e.target.setStyle({ weight: 3, fillOpacity: 1 }),
-    mouseout: () => updateGermanCommunityMarkerStyle()
-  });
-
-  germanCommunityMarker.bindTooltip(CONFIG.districts[key].name, {
-    sticky: true,
-    direction: "top",
-    className: "province-tooltip"
-  });
-}
-
-function updateGermanCommunityMarkerStyle() {
-  if (!germanCommunityMarker) return;
-  const district = districts.GermanCommunity;
-  const selected = selectedDistrictKey === "GermanCommunity";
-  germanCommunityMarker.setStyle({
-    color: selected ? "#0f172a" : "#334155",
-    weight: selected ? 3 : 2,
-    fillColor: dominantPartyColor(district),
-    fillOpacity: selected ? 1 : 0.85
-  });
-  germanCommunityMarker.setTooltipContent(
-    `<strong>${district.name}</strong><br>saisie indicative (0 siège propre)<br>${districtTotal(district).toFixed(1)} % saisi`
-  );
 }
 
 function featureStyle(feature) {
@@ -356,7 +295,6 @@ function renderMap() {
     );
   });
 
-  updateGermanCommunityMarkerStyle();
   renderLegend();
 }
 
@@ -552,23 +490,22 @@ function fillEvenly() {
   showToast("Répartition égale appliquée aux partis disponibles ici.");
 }
 
-function fillHistorical2024() {
-  const district = districts[selectedDistrictKey];
-  const data = RESULTS_2024[selectedDistrictKey];
+function loadAllResults2024() {
+  let filled = 0;
 
-  if (!district) return;
-  if (!data) {
-    showToast("Pas de résultats 2024 disponibles pour cette circonscription.");
-    return;
+  for (const [key, district] of Object.entries(districts)) {
+    const data = RESULTS_2024[key];
+    if (!data) continue;
+
+    for (const party of parties) {
+      district.percentages[party.id] = data[party.id] || 0;
+    }
+    calculateDistrict(district);
+    filled += 1;
   }
 
-  for (const party of parties) {
-    district.percentages[party.id] = data[party.id] || 0;
-  }
-
-  calculateDistrict(district);
   renderAll();
-  showToast(`Résultats 2024 chargés pour ${district.name}.`);
+  showToast(`Résultats 2024 chargés pour ${filled} circonscriptions. Modifie-les librement pour construire ton scénario 2029.`);
 }
 
 function selectDistrict(key) {
@@ -606,7 +543,7 @@ function resetSimulation() {
   initializeDistricts();
   calculateAll();
   selectDistrict("Antwerp");
-  showToast("Simulation réinitialisée.");
+  showToast("Nouveau simulateur 2029 vierge — à toi de jouer.");
 }
 
 function computeHemicycleRows(total, rowCount) {
@@ -830,8 +767,8 @@ function showToast(message) {
 // Event wiring
 document.getElementById("calculateBtn").addEventListener("click", calculateAll);
 document.getElementById("resetBtn").addEventListener("click", resetSimulation);
+document.getElementById("loadAll2024Btn").addEventListener("click", loadAllResults2024);
 document.getElementById("fillEvenBtn").addEventListener("click", fillEvenly);
-document.getElementById("results2024Btn").addEventListener("click", fillHistorical2024);
 document.getElementById("addPartyBtn").addEventListener("click", addParty);
 
 document.getElementById("newPartyName").addEventListener("keydown", e => {
