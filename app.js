@@ -71,6 +71,7 @@ const RESULTS_2024 = {
 let parties = [...DEFAULT_PARTIES];
 let districts = {};
 let selectedDistrictKey = "Antwerp";
+let coalitionParties = new Set();
 let map;
 let geoJsonLayer;
 let germanCommunityMarker;
@@ -475,6 +476,7 @@ function removeParty(id) {
   if (!party) return;
 
   parties = parties.filter(p => p.id !== id);
+  coalitionParties.delete(id);
 
   for (const district of Object.values(districts)) {
     delete district.percentages[id];
@@ -689,12 +691,17 @@ function renderHemicycle() {
   points.sort((a, b) => b.angle - a.angle);
 
   const sequence = orderedSeatSequence();
+  const hasSelection = coalitionParties.size > 0;
 
   const circles = points.map((pt, i) => {
     const party = sequence[i];
     const color = party ? party.color : "#e2e8f0";
     const label = party ? escapeHtml(party.name) : "Siège non attribué";
-    return `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="6.4" fill="${color}" stroke="#ffffff" stroke-width="1"><title>${label}</title></circle>`;
+    const inCoalition = party && coalitionParties.has(party.id);
+    const stroke = inCoalition ? "#0f172a" : "#ffffff";
+    const strokeWidth = inCoalition ? 2.2 : 1;
+    const opacity = hasSelection && !inCoalition ? 0.35 : 1;
+    return `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="6.4" fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}"><title>${label}</title></circle>`;
   }).join("");
 
   const used = sequence.length;
@@ -739,11 +746,62 @@ function renderNationalResults() {
   }).join("");
 }
 
+const MAJORITY_SEATS = 76;
+
+function toggleCoalitionParty(id) {
+  if (coalitionParties.has(id)) {
+    coalitionParties.delete(id);
+  } else {
+    coalitionParties.add(id);
+  }
+  renderCoalition();
+  renderHemicycle();
+}
+
+function renderCoalition() {
+  const list = document.getElementById("coalitionList");
+  if (!list) return;
+
+  const totals = nationalSeats();
+  const rows = parties
+    .map(p => ({ ...p, seats: totals[p.id] || 0 }))
+    .sort((a, b) => b.seats - a.seats || a.name.localeCompare(b.name));
+
+  list.innerHTML = rows.map(p => `
+    <div class="coalition-row ${coalitionParties.has(p.id) ? "selected" : ""}" data-coalition-id="${p.id}">
+      <span class="coalition-dot" style="background:${p.color}"></span>
+      <span class="coalition-name">${escapeHtml(p.name)}</span>
+      <span class="coalition-seats">${p.seats}</span>
+    </div>
+  `).join("");
+
+  list.querySelectorAll("[data-coalition-id]").forEach(row => {
+    row.addEventListener("click", () => toggleCoalitionParty(row.dataset.coalitionId));
+  });
+
+  const coalitionSeats = [...coalitionParties].reduce((sum, id) => sum + (totals[id] || 0), 0);
+  const badge = document.getElementById("coalitionBadge");
+  const status = document.getElementById("coalitionStatus");
+  badge.textContent = `${coalitionSeats} / ${MAJORITY_SEATS}`;
+
+  if (coalitionParties.size === 0) {
+    status.textContent = "Sélectionne des partis pour composer une coalition.";
+    status.className = "coalition-status";
+  } else if (coalitionSeats >= MAJORITY_SEATS) {
+    status.textContent = `Coalition validée — majorité absolue (${coalitionSeats} sièges).`;
+    status.className = "coalition-status ok";
+  } else {
+    status.textContent = `Coalition insuffisante — il manque ${MAJORITY_SEATS - coalitionSeats} siège(s).`;
+    status.className = "coalition-status short";
+  }
+}
+
 function renderAll() {
   renderPartyList();
   renderPartyInputs();
   renderNationalResults();
   renderHemicycle();
+  renderCoalition();
   renderMap();
   updateInputSummary(false);
 }
