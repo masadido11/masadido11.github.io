@@ -216,12 +216,18 @@ function fetchGeoJson() {
     });
 }
 
+// Belgium's area, with a little breathing room around the edges — panning
+// beyond this box is blocked so the map can never wander off to another country.
+const BELGIUM_BOUNDS = L.latLngBounds([49.15, 2.2], [51.75, 6.75]);
+
 function buildMap() {
   map = L.map("map", {
     zoomControl: true,
     attributionControl: true,
     minZoom: 7,
-    maxZoom: 10
+    maxZoom: 10,
+    maxBounds: BELGIUM_BOUNDS,
+    maxBoundsViscosity: 1.0
   }).setView([50.65, 4.55], 8);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
