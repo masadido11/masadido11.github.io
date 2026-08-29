@@ -18,26 +18,28 @@ const CONFIG = {
   }
 };
 
-// Partis par défaut demandés (partis traditionnels + principaux partis actuels).
-// family: "fr" = francophone (Wallonie + volet FR de Bruxelles), "nl" = flamand
-// (Flandre + volet NL de Bruxelles), "both" = présent partout (ex: PTB/PVDA).
+// Political position: exg (extrême gauche) → exd (extrême droite). Used to place
+// the party correctly in the hemicycle and to let custom parties self-classify.
 const DEFAULT_PARTIES = [
-  { id: "mr", name: "MR", short: "MR", color: "#0B3D91", family: "fr" },
-  { id: "ps", name: "PS", short: "PS", color: "#E4032E", family: "fr" },
-  { id: "le", name: "Les Engagés", short: "LE", color: "#35FCDB", family: "fr" },
-  { id: "ecolo", name: "Ecolo", short: "ECOLO", color: "#3C8E3C", family: "fr" },
-  { id: "defi", name: "Défi", short: "DÉFI", color: "#EC008C", family: "fr" },
-  { id: "ptb", name: "PTB/PVDA", short: "PTB", color: "#8B1E3F", family: "both" },
-  { id: "openvld", name: "Open Vld", short: "VLD", color: "#1CADE4", family: "nl" },
-  { id: "cdv", name: "CD&V", short: "CD&V", color: "#FF7F00", family: "nl" },
-  { id: "vooruit", name: "Vooruit", short: "VRT", color: "#C9184A", family: "nl" },
-  { id: "nva", name: "N-VA", short: "N-VA", color: "#FFD200", family: "nl" },
-  { id: "vb", name: "Vlaams Belang", short: "VB", color: "#5C1A1A", family: "nl" },
-  { id: "groen", name: "Groen", short: "GROEN", color: "#4CAF50", family: "nl" }
+  { id: "mr", name: "MR", short: "MR", color: "#0B3D91", family: "fr", position: "droite" },
+  { id: "ps", name: "PS", short: "PS", color: "#E4032E", family: "fr", position: "gauche" },
+  { id: "le", name: "Les Engagés", short: "LE", color: "#35FCDB", family: "fr", position: "centre" },
+  { id: "ecolo", name: "Ecolo", short: "ECOLO", color: "#3C8E3C", family: "fr", position: "gauche" },
+  { id: "defi", name: "Défi", short: "DÉFI", color: "#EC008C", family: "fr", position: "centre" },
+  { id: "ptb", name: "PTB/PVDA", short: "PTB", color: "#8B1E3F", family: "both", position: "exg" },
+  { id: "openvld", name: "Open Vld", short: "VLD", color: "#1CADE4", family: "nl", position: "droite" },
+  { id: "cdv", name: "CD&V", short: "CD&V", color: "#FF7F00", family: "nl", position: "centre" },
+  { id: "vooruit", name: "Vooruit", short: "VRT", color: "#C9184A", family: "nl", position: "gauche" },
+  { id: "nva", name: "N-VA", short: "N-VA", color: "#FFD200", family: "nl", position: "droite" },
+  { id: "vb", name: "Vlaams Belang", short: "VB", color: "#5C1A1A", family: "nl", position: "exd" },
+  { id: "groen", name: "Groen", short: "GROEN", color: "#4CAF50", family: "nl", position: "gauche" }
 ];
 
-// Political left-to-right seating order used by the hemicycle visual.
+// Political left-to-right seating order used by the hemicycle visual, and the
+// bucket order used to place custom parties by their declared position.
 const HEMICYCLE_ORDER = ["ptb", "ps", "vooruit", "groen", "ecolo", "defi", "le", "cdv", "openvld", "mr", "nva", "vb"];
+const POSITION_ORDER = { exg: 0, gauche: 1, centre: 2, droite: 3, exd: 4 };
+const POSITION_LABELS = { exg: "Extrême gauche", gauche: "Gauche", centre: "Centre", droite: "Droite", exd: "Extrême droite" };
 
 // Résultats réels des élections fédérales du 9 juin 2024, par circonscription (en % des voix).
 // Sources : pages Wikipédia (EN/FR) de chaque circonscription + résultats officiels SPF Intérieur.
@@ -64,6 +66,23 @@ let coalitionParties = new Set();
 let map;
 let geoJsonLayer;
 let featureByKey = new Map();
+
+function initTheme() {
+  const btn = document.getElementById("themeToggleBtn");
+  const applyLabel = () => {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    btn.textContent = isDark ? "☀️ Clair" : "🌙 Sombre";
+  };
+  applyLabel();
+
+  btn.addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("bes-theme", next);
+    applyLabel();
+  });
+}
 
 const money = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 1 });
 
@@ -318,26 +337,48 @@ function renderPartyInputs() {
     const preview = Number(district.seatsByParty[p.id] || 0);
     return `
       <div class="party-row">
-        <label class="party-label" for="pct-${p.id}">
-          <span class="party-dot" style="background:${p.color}"></span>
-          <span>${escapeHtml(p.name)}</span>
-        </label>
-        <input class="percent-input" id="pct-${p.id}" data-party-id="${p.id}"
-               type="number" min="0" max="100" step="0.1" value="${value}">
-        <span class="party-seat-preview" id="seat-${p.id}">${preview} sièges</span>
+        <div class="party-row-top">
+          <label class="party-label" for="pct-${p.id}">
+            <span class="party-dot" style="background:${p.color}"></span>
+            <span>${escapeHtml(p.name)}</span>
+          </label>
+          <span class="party-seat-preview" id="seat-${p.id}">${preview} sièges</span>
+        </div>
+        <div class="party-row-controls">
+          <input class="percent-slider" id="slider-${p.id}" data-party-id="${p.id}"
+                 type="range" min="0" max="100" step="0.1" value="${value}"
+                 style="color:${p.color}">
+          <input class="percent-input" id="pct-${p.id}" data-party-id="${p.id}"
+                 type="number" min="0" max="100" step="0.1" value="${value}">
+        </div>
       </div>
     `;
   }).join("");
 
+  function applyPercent(id, value) {
+    district.percentages[id] = sanitizePercent(value);
+    calculateDistrict(district);
+    updateInputSummary(false);
+    updateSeatPreviews(district);
+    renderNationalResults();
+    renderMap();
+  }
+
   container.querySelectorAll(".percent-input").forEach(input => {
     input.addEventListener("input", () => {
       const id = input.dataset.partyId;
-      district.percentages[id] = sanitizePercent(input.value);
-      calculateDistrict(district);
-      updateInputSummary(false);
-      updateSeatPreviews(district);
-      renderNationalResults();
-      renderMap();
+      applyPercent(id, input.value);
+      const slider = document.getElementById(`slider-${id}`);
+      if (slider) slider.value = district.percentages[id];
+    });
+  });
+
+  container.querySelectorAll(".percent-slider").forEach(slider => {
+    slider.addEventListener("input", () => {
+      const id = slider.dataset.partyId;
+      applyPercent(id, slider.value);
+      const numberInput = document.getElementById(`pct-${id}`);
+      if (numberInput) numberInput.value = district.percentages[id];
     });
   });
 }
@@ -375,20 +416,27 @@ function updateInputSummary(recalculate = false) {
 
 function renderPartyList() {
   const list = document.getElementById("partyList");
-  list.innerHTML = parties.map((p, index) => `
+  list.innerHTML = parties.map(p => `
     <div class="party-config-row">
-      <div class="party-config">
+      <div class="party-config-top">
         <span class="mini-color" style="background:${p.color}"></span>
         <strong>${escapeHtml(p.name)}</strong>
         <small>${escapeHtml(p.short)}</small>
+        <button class="delete-party" data-delete-id="${p.id}" title="Supprimer ${escapeHtml(p.name)}" ${parties.length <= 1 ? "disabled" : ""}>×</button>
       </div>
-      <select data-family-id="${p.id}" aria-label="Camp linguistique de ${escapeHtml(p.name)}">
-        <option value="fr" ${p.family === "fr" ? "selected" : ""}>FR</option>
-        <option value="nl" ${p.family === "nl" ? "selected" : ""}>NL</option>
-        <option value="both" ${!p.family || p.family === "both" ? "selected" : ""}>National</option>
-      </select>
-      <input type="color" value="${p.color}" data-color-id="${p.id}" aria-label="Couleur ${escapeHtml(p.name)}">
-      <button class="delete-party" data-delete-id="${p.id}" title="Supprimer ${escapeHtml(p.name)}" ${parties.length <= 1 ? "disabled" : ""}>×</button>
+      <div class="party-config-controls">
+        <select data-family-id="${p.id}" aria-label="Camp linguistique de ${escapeHtml(p.name)}">
+          <option value="fr" ${p.family === "fr" ? "selected" : ""}>FR</option>
+          <option value="nl" ${p.family === "nl" ? "selected" : ""}>NL</option>
+          <option value="both" ${!p.family || p.family === "both" ? "selected" : ""}>National</option>
+        </select>
+        <select data-position-id="${p.id}" aria-label="Orientation politique de ${escapeHtml(p.name)}">
+          ${Object.entries(POSITION_LABELS).map(([value, label]) =>
+            `<option value="${value}" ${p.position === value ? "selected" : ""}>${label}</option>`
+          ).join("")}
+        </select>
+        <input type="color" value="${p.color}" data-color-id="${p.id}" aria-label="Couleur ${escapeHtml(p.name)}">
+      </div>
     </div>
   `).join("");
 
@@ -406,6 +454,15 @@ function renderPartyList() {
       const party = parties.find(p => p.id === select.dataset.familyId);
       if (!party) return;
       party.family = select.value;
+      renderAll();
+    });
+  });
+
+  list.querySelectorAll("[data-position-id]").forEach(select => {
+    select.addEventListener("change", () => {
+      const party = parties.find(p => p.id === select.dataset.positionId);
+      if (!party) return;
+      party.position = select.value;
       renderAll();
     });
   });
@@ -436,11 +493,13 @@ function addParty() {
   const nameInput = document.getElementById("newPartyName");
   const shortInput = document.getElementById("newPartyShort");
   const familyInput = document.getElementById("newPartyFamily");
+  const positionInput = document.getElementById("newPartyPosition");
   const colorInput = document.getElementById("newPartyColor");
 
   const name = nameInput.value.trim();
   const short = (shortInput.value.trim() || name.slice(0, 5)).toUpperCase();
   const family = familyInput.value || "both";
+  const position = positionInput.value || "centre";
   const color = colorInput.value;
 
   if (!name) {
@@ -449,7 +508,7 @@ function addParty() {
   }
 
   const id = slugDistrict(`${name}-${Date.now()}`);
-  parties.push({ id, name, short, color, family });
+  parties.push({ id, name, short, color, family, position });
 
   for (const district of Object.values(districts)) {
     district.percentages[id] = 0;
@@ -459,8 +518,9 @@ function addParty() {
   nameInput.value = "";
   shortInput.value = "";
   familyInput.value = "both";
+  positionInput.value = "centre";
   renderAll();
-  showToast(`${name} a été ajouté (${familyLabel(family)}).`);
+  showToast(`${name} a été ajouté (${familyLabel(family)}, ${POSITION_LABELS[position].toLowerCase()}).`);
 }
 
 function familyLabel(family) {
@@ -579,21 +639,15 @@ function orderedSeatSequence() {
   const totals = nationalSeats();
 
   const scored = parties.map(p => {
+    const bucket = POSITION_ORDER[p.position] ?? POSITION_ORDER.centre;
     const knownIndex = HEMICYCLE_ORDER.indexOf(p.id);
-    let score;
-    if (knownIndex !== -1) {
-      score = knownIndex;
-    } else if (p.family === "both") {
-      score = -1; // unclassified national parties default next to the hard-left bloc
-    } else if (p.family === "nl") {
-      score = HEMICYCLE_ORDER.indexOf("cdv") + 0.5;
-    } else {
-      score = HEMICYCLE_ORDER.indexOf("le") + 0.5;
-    }
-    return { party: p, score };
+    // Within the same left-right bucket, classic parties keep their historical
+    // relative order; custom parties settle at the end of their bucket, sorted by name.
+    const tie = knownIndex !== -1 ? knownIndex : 50;
+    return { party: p, score: bucket * 100 + tie };
   });
 
-  scored.sort((a, b) => a.score - b.score);
+  scored.sort((a, b) => a.score - b.score || a.party.name.localeCompare(b.party.name));
 
   const sequence = [];
   for (const { party } of scored) {
@@ -783,5 +837,6 @@ window.addEventListener("resize", () => {
 });
 
 initializeDistricts();
+initTheme();
 buildMap();
 renderAll();
