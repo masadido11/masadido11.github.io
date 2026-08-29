@@ -86,6 +86,17 @@ button, input, select { font: inherit; }
   font-size: 13px;
 }
 
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.theme-toggle {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .top-actions {
   display: flex;
   gap: 8px;
@@ -621,6 +632,7 @@ footer {
 
 @media (max-width: 620px) {
   .topbar { align-items: flex-start; flex-direction: column; }
+  .topbar-left { flex-wrap: wrap; }
   .party-config-controls { grid-template-columns: 1fr 1fr 38px; }
   .add-party-row-1 { grid-template-columns: 1fr 60px 42px; }
   .add-party-row-2 { grid-template-columns: 1fr 1fr; }

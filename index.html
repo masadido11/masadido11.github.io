@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
   <script>
     (function () {
       var saved = localStorage.getItem("bes-theme");
@@ -18,12 +18,14 @@
 </head>
 <body>
   <header class="topbar">
-    <div>
-      <h1>🇧🇪 Belgian Election Simulator</h1>
-      <p>Chambre des représentants · Simulation V1</p>
+    <div class="topbar-left">
+      <button id="themeToggleBtn" class="button button-secondary theme-toggle" title="Basculer le thème">🌙 Sombre</button>
+      <div>
+        <h1>🇧🇪 Belgian Election Simulator</h1>
+        <p>Chambre des représentants · Simulation V1</p>
+      </div>
     </div>
     <div class="top-actions">
-      <button id="themeToggleBtn" class="button button-secondary" title="Basculer le thème">🌙 Sombre</button>
       <button id="resetBtn" class="button button-secondary">Simulateur 2029 (vierge)</button>
       <button id="loadAll2024Btn" class="button button-secondary">Résultats 2024 (toutes circonscriptions)</button>
       <button id="calculateBtn" class="button button-primary">Calculer les sièges</button>
@@ -140,6 +142,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>
