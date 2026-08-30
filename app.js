@@ -159,6 +159,10 @@ function sanitizePercent(value) {
   return Math.min(100, Math.max(0, n));
 }
 
+function round1(value) {
+  return Math.round(value * 10) / 10;
+}
+
 function calculateDistrict(district) {
   district.seatsByParty = dHondt(district.percentages, district.seats);
   district.winner = getWinner(district.percentages);
@@ -364,6 +368,80 @@ function renderPartyInputs() {
     renderMap();
   }
 
+  // Slider-only: moving one party's slider redistributes the difference across
+  // the other parties, proportionally to their current share, so the total stays
+  // constant. Uses a small water-filling loop so parties already at 0 (or that
+  // would go negative) don't block the redistribution — the leftover just spills
+  // over to the next-largest parties instead.
+  function applyPercentWithRebalance(id, rawValue) {
+    const others = allowed.map(p => p.id).filter(pid => pid !== id);
+    const oldValue = Number(district.percentages[id] || 0);
+    const newValue = sanitizePercent(rawValue);
+    const delta = newValue - oldValue;
+
+    if (Math.abs(delta) > 0.0001 && others.length) {
+      const othersSum = others.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
+
+      if (othersSum > 0.0001) {
+        if (delta < 0) {
+          // Freed up percentage: distribute it to the others, proportionally to
+          // their current value (biggest parties absorb the biggest share).
+          const toDistribute = -delta;
+          for (const pid of others) {
+            const share = Number(district.percentages[pid] || 0) / othersSum;
+            district.percentages[pid] = round1(Number(district.percentages[pid] || 0) + toDistribute * share);
+          }
+        } else {
+          // Needs to take percentage away from the others, proportionally —
+          // clamped at 0, with leftover re-distributed among the remaining ones.
+          let remaining = delta;
+          let candidates = others.slice();
+          for (let iter = 0; iter < 6 && remaining > 0.0001 && candidates.length; iter++) {
+            const candidateSum = candidates.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
+            if (candidateSum <= 0.0001) break;
+
+            const next = [];
+            let spillover = 0;
+            for (const pid of candidates) {
+              const cur = Number(district.percentages[pid] || 0);
+              const cut = remaining * (cur / candidateSum);
+              if (cut >= cur) {
+                spillover += cut - cur;
+                district.percentages[pid] = 0;
+              } else {
+                district.percentages[pid] = round1(cur - cut);
+                next.push(pid);
+              }
+            }
+            candidates = next;
+            remaining = spillover;
+          }
+        }
+      }
+    }
+
+    district.percentages[id] = newValue;
+    calculateDistrict(district);
+    updateInputSummary(false);
+    renderNationalResults();
+    renderMap();
+    syncPartyControls(district, id);
+  }
+
+  function syncPartyControls(currentDistrict, skipId) {
+    for (const p of allowed) {
+      const val = currentDistrict.percentages[p.id];
+      const numberInput = document.getElementById(`pct-${p.id}`);
+      const slider = document.getElementById(`slider-${p.id}`);
+      if (p.id !== skipId) {
+        if (numberInput) numberInput.value = val;
+        if (slider) slider.value = val;
+      }
+      const seatEl = document.getElementById(`seat-${p.id}`);
+      if (seatEl) seatEl.textContent = `${currentDistrict.seatsByParty[p.id] || 0} sièges`;
+    }
+  }
+
   container.querySelectorAll(".percent-input").forEach(input => {
     input.addEventListener("input", () => {
       const id = input.dataset.partyId;
@@ -375,10 +453,7 @@ function renderPartyInputs() {
 
   container.querySelectorAll(".percent-slider").forEach(slider => {
     slider.addEventListener("input", () => {
-      const id = slider.dataset.partyId;
-      applyPercent(id, slider.value);
-      const numberInput = document.getElementById(`pct-${id}`);
-      if (numberInput) numberInput.value = district.percentages[id];
+      applyPercentWithRebalance(slider.dataset.partyId, slider.value);
     });
   });
 }
