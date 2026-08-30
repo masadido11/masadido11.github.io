@@ -1,22 +1,78 @@
-const CONFIG = {
-  geojsonPath: "data/be.json",
-  geojsonFallbackPath: "be.json",
-  threshold: 5,
-  totalSeats: 150,
-  districts: {
-    "Antwerp": { id: "antwerp", name: "Anvers", seats: 24, language: "nl" },
-    "Limburg": { id: "limburg", name: "Limbourg", seats: 12, language: "nl" },
-    "East Flanders": { id: "east-flanders", name: "Flandre orientale", seats: 20, language: "nl" },
-    "Flemish Brabant": { id: "flemish-brabant", name: "Brabant flamand", seats: 15, language: "nl" },
-    "West Flanders": { id: "west-flanders", name: "Flandre occidentale", seats: 16, language: "nl" },
-    "Brussels": { id: "brussels", name: "Bruxelles-Capitale", seats: 16, language: "both" },
-    "Walloon Brabant": { id: "walloon-brabant", name: "Brabant wallon", seats: 5, language: "fr" },
-    "Hainaut": { id: "hainaut", name: "Hainaut", seats: 17, language: "fr" },
-    "Liege": { id: "liege", name: "Liège", seats: 14, language: "fr" },
-    "Luxembourg": { id: "luxembourg", name: "Luxembourg", seats: 4, language: "fr" },
-    "Namur": { id: "namur", name: "Namur", seats: 7, language: "fr" }
+const GEOJSON_PATH = "data/be.json";
+const GEOJSON_FALLBACK_PATH = "be.json";
+
+// Four parliaments share the same map and the same party roster, but each has
+// its own set of constituencies, seat counts, and majority threshold.
+// La Communauté germanophone n'est pas encore modélisée dans les parlements régionaux.
+const CHAMBERS = {
+  federal: {
+    id: "federal",
+    label: "Fédéral (Chambre)",
+    threshold: 5,
+    totalSeats: 150,
+    majority: 76,
+    districts: {
+      "Antwerp": { id: "antwerp", name: "Anvers", seats: 24, language: "nl" },
+      "Limburg": { id: "limburg", name: "Limbourg", seats: 12, language: "nl" },
+      "East Flanders": { id: "east-flanders", name: "Flandre orientale", seats: 20, language: "nl" },
+      "Flemish Brabant": { id: "flemish-brabant", name: "Brabant flamand", seats: 15, language: "nl" },
+      "West Flanders": { id: "west-flanders", name: "Flandre occidentale", seats: 16, language: "nl" },
+      "Brussels": { id: "brussels", name: "Bruxelles-Capitale", seats: 16, language: "both" },
+      "Walloon Brabant": { id: "walloon-brabant", name: "Brabant wallon", seats: 5, language: "fr" },
+      "Hainaut": { id: "hainaut", name: "Hainaut", seats: 17, language: "fr" },
+      "Liege": { id: "liege", name: "Liège", seats: 14, language: "fr" },
+      "Luxembourg": { id: "luxembourg", name: "Luxembourg", seats: 4, language: "fr" },
+      "Namur": { id: "namur", name: "Namur", seats: 7, language: "fr" }
+    }
+  },
+  wallon: {
+    id: "wallon",
+    label: "Parlement wallon",
+    threshold: 5,
+    totalSeats: 75,
+    majority: 38,
+    districts: {
+      "Hainaut": { id: "hainaut-w", name: "Hainaut", seats: 31, language: "fr" },
+      "Liege": { id: "liege-w", name: "Liège", seats: 22, language: "fr" },
+      "Namur": { id: "namur-w", name: "Namur", seats: 9, language: "fr" },
+      "Luxembourg": { id: "luxembourg-w", name: "Luxembourg", seats: 5, language: "fr" },
+      "Walloon Brabant": { id: "walloon-brabant-w", name: "Brabant wallon", seats: 8, language: "fr" }
+    }
+  },
+  flamand: {
+    id: "flamand",
+    label: "Vlaams Parlement",
+    threshold: 5,
+    totalSeats: 118,
+    majority: 60,
+    districts: {
+      "Antwerp": { id: "antwerp-vl", name: "Anvers", seats: 33, language: "nl" },
+      "Limburg": { id: "limburg-vl", name: "Limbourg", seats: 16, language: "nl" },
+      "East Flanders": { id: "east-flanders-vl", name: "Flandre orientale", seats: 27, language: "nl" },
+      "West Flanders": { id: "west-flanders-vl", name: "Flandre occidentale", seats: 22, language: "nl" },
+      "Flemish Brabant": { id: "flemish-brabant-vl", name: "Brabant flamand", seats: 20, language: "nl" }
+    }
+  },
+  bruxellois: {
+    id: "bruxellois",
+    label: "Parlement bruxellois",
+    threshold: 5,
+    totalSeats: 89,
+    majority: 45,
+    districts: {
+      "Brussels": {
+        id: "brussels-brx",
+        name: "Bruxelles-Capitale",
+        seats: 89,
+        language: "both",
+        note: "Simplifié : le vrai Parlement bruxellois répartit les 89 sièges via deux collèges linguistiques séparés (72 FR + 17 NL). Ici, un seul calcul D'Hondt global est utilisé."
+      }
+    }
   }
 };
+
+let ACTIVE_CHAMBER = "federal";
+let CONFIG = CHAMBERS.federal;
 
 // Political position: exg (extrême gauche) → exd (extrême droite). Used to place
 // the party correctly in the hemicycle and to let custom parties self-classify.
@@ -41,6 +97,16 @@ const HEMICYCLE_ORDER = ["ptb", "ps", "vooruit", "groen", "ecolo", "defi", "le",
 const POSITION_ORDER = { exg: 0, gauche: 1, centre: 2, droite: 3, exd: 4 };
 const POSITION_LABELS = { exg: "Extrême gauche", gauche: "Gauche", centre: "Centre", droite: "Droite", exd: "Extrême droite" };
 
+// Coalitions historiques/hypothétiques suggérées dans le coalition maker.
+// Les ids qui n'existent plus dans `parties` (parti supprimé) sont ignorés au clic.
+const COALITION_PRESETS = [
+  { id: "arizona", name: "Arizona", parties: ["nva", "mr", "vooruit", "cdv", "le"] },
+  { id: "vivaldi", name: "Vivaldi", parties: ["ps", "mr", "ecolo", "groen", "openvld", "vooruit", "cdv"] },
+  { id: "suedoise", name: "Suédoise", parties: ["nva", "mr", "cdv", "openvld"] },
+  { id: "gauche-unie", name: "Coalition de gauche", parties: ["ps", "ecolo", "groen", "vooruit", "ptb"] },
+  { id: "droite-exd", name: "Droite + extrême droite", parties: ["mr", "openvld", "nva", "vb"] }
+];
+
 // Résultats réels des élections fédérales du 9 juin 2024, par circonscription (en % des voix).
 // Sources : pages Wikipédia (EN/FR) de chaque circonscription + résultats officiels SPF Intérieur.
 // Chiffres arrondis ; les petites listes locales (Team Fouad Ahidar, Voor U, etc.) ne sont pas
@@ -60,12 +126,58 @@ const RESULTS_2024 = {
 };
 
 let parties = [...DEFAULT_PARTIES];
+let stateByChamber = {};
 let districts = {};
 let selectedDistrictKey = "Antwerp";
 let coalitionParties = new Set();
 let map;
 let geoJsonLayer;
 let featureByKey = new Map();
+
+let undoStack = [];
+const UNDO_LIMIT = 30;
+
+function snapshotState() {
+  return JSON.stringify({
+    stateByChamber,
+    parties,
+    coalitionParties: [...coalitionParties],
+    activeChamber: ACTIVE_CHAMBER,
+    selectedDistrictKey
+  });
+}
+
+function pushUndo() {
+  undoStack.push(snapshotState());
+  if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+  updateUndoButton();
+}
+
+function undo() {
+  if (!undoStack.length) {
+    showToast("Rien à annuler.");
+    return;
+  }
+  const snap = JSON.parse(undoStack.pop());
+  stateByChamber = snap.stateByChamber;
+  parties = snap.parties;
+  coalitionParties = new Set(snap.coalitionParties);
+  ACTIVE_CHAMBER = snap.activeChamber;
+  CONFIG = CHAMBERS[ACTIVE_CHAMBER];
+  districts = stateByChamber[ACTIVE_CHAMBER];
+  selectedDistrictKey = districts[snap.selectedDistrictKey] ? snap.selectedDistrictKey : Object.keys(CONFIG.districts)[0];
+
+  updateUndoButton();
+  updateChamberTabsUI();
+  updateLoadResultsButtonState();
+  renderAll();
+  showToast("Dernière action annulée.");
+}
+
+function updateUndoButton() {
+  const btn = document.getElementById("undoBtn");
+  if (btn) btn.disabled = undoStack.length === 0;
+}
 
 function initTheme() {
   const btn = document.getElementById("themeToggleBtn");
@@ -90,16 +202,80 @@ function makeBlankResult() {
   return Object.fromEntries(parties.map(p => [p.id, 0]));
 }
 
-function initializeDistricts() {
-  districts = {};
-  for (const key of Object.keys(CONFIG.districts)) {
-    districts[key] = {
-      ...CONFIG.districts[key],
+function buildStateFor(chamberId) {
+  const chamber = CHAMBERS[chamberId];
+  const state = {};
+  for (const key of Object.keys(chamber.districts)) {
+    state[key] = {
+      ...chamber.districts[key],
       percentages: makeBlankResult(),
       seatsByParty: makeBlankResult(),
       winner: null
     };
   }
+  return state;
+}
+
+function initializeDistricts() {
+  stateByChamber[ACTIVE_CHAMBER] = buildStateFor(ACTIVE_CHAMBER);
+  districts = stateByChamber[ACTIVE_CHAMBER];
+}
+
+function switchChamber(chamberId) {
+  if (!CHAMBERS[chamberId] || chamberId === ACTIVE_CHAMBER) return;
+
+  ACTIVE_CHAMBER = chamberId;
+  CONFIG = CHAMBERS[chamberId];
+
+  if (!stateByChamber[chamberId]) {
+    stateByChamber[chamberId] = buildStateFor(chamberId);
+  }
+  districts = stateByChamber[chamberId];
+  selectedDistrictKey = Object.keys(CONFIG.districts)[0];
+  coalitionParties = new Set();
+
+  updateChamberTabsUI();
+  updateLoadResultsButtonState();
+  renderAll();
+
+  const layer = featureByKey.get(selectedDistrictKey);
+  if (layer && map) {
+    if (typeof layer.getBounds === "function") {
+      map.fitBounds(layer.getBounds(), { maxZoom: 9, padding: [24, 24], animate: true });
+    } else if (typeof layer.getLatLng === "function") {
+      map.setView(layer.getLatLng(), 9, { animate: true });
+    }
+  }
+
+  showToast(`${CONFIG.label} — ${CONFIG.totalSeats} sièges, majorité à ${CONFIG.majority}.`);
+}
+
+function updateChamberTabsUI() {
+  document.querySelectorAll("[data-chamber-id]").forEach(btn => {
+    btn.classList.toggle("selected", btn.dataset.chamberId === ACTIVE_CHAMBER);
+  });
+
+  const districtCount = Object.keys(CONFIG.districts).length;
+  const mapBadge = document.getElementById("mapSeatsBadge");
+  if (mapBadge) mapBadge.textContent = `${CONFIG.totalSeats} sièges`;
+
+  const resultsTitle = document.getElementById("resultsTitle");
+  if (resultsTitle) resultsTitle.textContent = CONFIG.label;
+
+  const resultsSubtitle = document.getElementById("resultsSubtitle");
+  if (resultsSubtitle) resultsSubtitle.textContent = `Résultat cumulé des ${districtCount} circonscription(s).`;
+
+  const hemicycleSubtitle = document.getElementById("hemicycleSubtitle");
+  if (hemicycleSubtitle) hemicycleSubtitle.textContent = `Répartition visuelle des ${CONFIG.totalSeats} sièges, de gauche à droite.`;
+}
+
+function updateLoadResultsButtonState() {
+  const btn = document.getElementById("loadAll2024Btn");
+  if (!btn) return;
+  btn.disabled = ACTIVE_CHAMBER !== "federal";
+  btn.title = ACTIVE_CHAMBER === "federal"
+    ? ""
+    : "Données 2024 pas encore disponibles pour les parlements régionaux.";
 }
 
 function slugDistrict(name) {
@@ -163,6 +339,61 @@ function round1(value) {
   return Math.round(value * 10) / 10;
 }
 
+// Sets `id`'s percentage to `newValue` in `district`, redistributing the
+// difference across the district's other allowed parties, proportionally to
+// their current share — so the district's total stays constant. Uses a small
+// water-filling loop so parties already at 0 (or that would go negative)
+// don't block the redistribution: the leftover just spills over to the
+// next-largest parties instead. Shared by the slider UI and the national swing tool.
+function rebalancePercent(district, id, newValue, allowedIds) {
+  const others = allowedIds.filter(pid => pid !== id);
+  const oldValue = Number(district.percentages[id] || 0);
+  const delta = newValue - oldValue;
+
+  if (Math.abs(delta) > 0.0001 && others.length) {
+    const othersSum = others.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
+
+    if (othersSum > 0.0001) {
+      if (delta < 0) {
+        // Freed up percentage: distribute it to the others, proportionally to
+        // their current value (biggest parties absorb the biggest share).
+        const toDistribute = -delta;
+        for (const pid of others) {
+          const share = Number(district.percentages[pid] || 0) / othersSum;
+          district.percentages[pid] = round1(Number(district.percentages[pid] || 0) + toDistribute * share);
+        }
+      } else {
+        // Needs to take percentage away from the others, proportionally —
+        // clamped at 0, with leftover re-distributed among the remaining ones.
+        let remaining = delta;
+        let candidates = others.slice();
+        for (let iter = 0; iter < 6 && remaining > 0.0001 && candidates.length; iter++) {
+          const candidateSum = candidates.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
+          if (candidateSum <= 0.0001) break;
+
+          const next = [];
+          let spillover = 0;
+          for (const pid of candidates) {
+            const cur = Number(district.percentages[pid] || 0);
+            const cut = remaining * (cur / candidateSum);
+            if (cut >= cur) {
+              spillover += cut - cur;
+              district.percentages[pid] = 0;
+            } else {
+              district.percentages[pid] = round1(cur - cut);
+              next.push(pid);
+            }
+          }
+          candidates = next;
+          remaining = spillover;
+        }
+      }
+    }
+  }
+
+  district.percentages[id] = newValue;
+}
+
 function calculateDistrict(district) {
   district.seatsByParty = dHondt(district.percentages, district.seats);
   district.winner = getWinner(district.percentages);
@@ -213,15 +444,15 @@ function getAllowedParties(district) {
 }
 
 function fetchGeoJson() {
-  return fetch(CONFIG.geojsonPath)
+  return fetch(GEOJSON_PATH)
     .then(response => {
-      if (!response.ok) throw new Error(`HTTP ${response.status} sur ${CONFIG.geojsonPath}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status} sur ${GEOJSON_PATH}`);
       return response.json();
     })
     .catch(primaryError => {
-      console.warn(`Échec de chargement de ${CONFIG.geojsonPath} (${primaryError.message}). Essai de ${CONFIG.geojsonFallbackPath}...`);
-      return fetch(CONFIG.geojsonFallbackPath).then(response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status} sur ${CONFIG.geojsonFallbackPath}`);
+      console.warn(`Échec de chargement de ${GEOJSON_PATH} (${primaryError.message}). Essai de ${GEOJSON_FALLBACK_PATH}...`);
+      return fetch(GEOJSON_FALLBACK_PATH).then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status} sur ${GEOJSON_FALLBACK_PATH}`);
         return response.json();
       });
     });
@@ -303,11 +534,24 @@ function renderMap() {
   geoJsonLayer.eachLayer(layer => {
     const feature = layer.feature;
     const key = getDistrictFromFeature(feature);
-    const district = districts[key];
+    const district = key ? districts[key] : null;
+
+    if (!district) {
+      layer.setStyle({
+        color: "#94a3b8",
+        weight: 1,
+        dashArray: "2,3",
+        fillColor: "#94a3b8",
+        fillOpacity: 0.12
+      });
+      layer.setTooltipContent(`<strong>${feature?.properties?.name || "?"}</strong><br>hors du ${CONFIG.label}`);
+      return;
+    }
 
     layer.setStyle({
       color: key === selectedDistrictKey ? "#0f172a" : "#ffffff",
       weight: key === selectedDistrictKey ? 3 : 1.25,
+      dashArray: null,
       fillColor: dominantPartyColor(district),
       fillOpacity: key === selectedDistrictKey ? 0.92 : 0.75
     });
@@ -370,57 +614,11 @@ function renderPartyInputs() {
 
   // Slider-only: moving one party's slider redistributes the difference across
   // the other parties, proportionally to their current share, so the total stays
-  // constant. Uses a small water-filling loop so parties already at 0 (or that
-  // would go negative) don't block the redistribution — the leftover just spills
-  // over to the next-largest parties instead.
+  // constant.
   function applyPercentWithRebalance(id, rawValue) {
-    const others = allowed.map(p => p.id).filter(pid => pid !== id);
-    const oldValue = Number(district.percentages[id] || 0);
+    const allowedIds = allowed.map(p => p.id);
     const newValue = sanitizePercent(rawValue);
-    const delta = newValue - oldValue;
-
-    if (Math.abs(delta) > 0.0001 && others.length) {
-      const othersSum = others.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
-
-      if (othersSum > 0.0001) {
-        if (delta < 0) {
-          // Freed up percentage: distribute it to the others, proportionally to
-          // their current value (biggest parties absorb the biggest share).
-          const toDistribute = -delta;
-          for (const pid of others) {
-            const share = Number(district.percentages[pid] || 0) / othersSum;
-            district.percentages[pid] = round1(Number(district.percentages[pid] || 0) + toDistribute * share);
-          }
-        } else {
-          // Needs to take percentage away from the others, proportionally —
-          // clamped at 0, with leftover re-distributed among the remaining ones.
-          let remaining = delta;
-          let candidates = others.slice();
-          for (let iter = 0; iter < 6 && remaining > 0.0001 && candidates.length; iter++) {
-            const candidateSum = candidates.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
-            if (candidateSum <= 0.0001) break;
-
-            const next = [];
-            let spillover = 0;
-            for (const pid of candidates) {
-              const cur = Number(district.percentages[pid] || 0);
-              const cut = remaining * (cur / candidateSum);
-              if (cut >= cur) {
-                spillover += cut - cur;
-                district.percentages[pid] = 0;
-              } else {
-                district.percentages[pid] = round1(cur - cut);
-                next.push(pid);
-              }
-            }
-            candidates = next;
-            remaining = spillover;
-          }
-        }
-      }
-    }
-
-    district.percentages[id] = newValue;
+    rebalancePercent(district, id, newValue, allowedIds);
     calculateDistrict(district);
     updateInputSummary(false);
     renderNationalResults();
@@ -443,18 +641,34 @@ function renderPartyInputs() {
   }
 
   container.querySelectorAll(".percent-input").forEach(input => {
+    let snapshotTaken = false;
     input.addEventListener("input", () => {
+      if (!snapshotTaken) {
+        pushUndo();
+        snapshotTaken = true;
+      }
       const id = input.dataset.partyId;
       applyPercent(id, input.value);
       const slider = document.getElementById(`slider-${id}`);
       if (slider) slider.value = district.percentages[id];
     });
+    input.addEventListener("blur", () => { snapshotTaken = false; });
   });
 
   container.querySelectorAll(".percent-slider").forEach(slider => {
+    let snapshotTaken = false;
+    const takeSnapshotOnce = () => {
+      if (!snapshotTaken) {
+        pushUndo();
+        snapshotTaken = true;
+      }
+    };
+    slider.addEventListener("pointerdown", takeSnapshotOnce);
+    slider.addEventListener("keydown", takeSnapshotOnce);
     slider.addEventListener("input", () => {
       applyPercentWithRebalance(slider.dataset.partyId, slider.value);
     });
+    slider.addEventListener("change", () => { snapshotTaken = false; });
   });
 }
 
@@ -516,16 +730,20 @@ function renderPartyList() {
   `).join("");
 
   list.querySelectorAll("[data-color-id]").forEach(input => {
+    let snapshotTaken = false;
     input.addEventListener("input", () => {
+      if (!snapshotTaken) { pushUndo(); snapshotTaken = true; }
       const party = parties.find(p => p.id === input.dataset.colorId);
       if (!party) return;
       party.color = input.value;
       renderAll();
     });
+    input.addEventListener("blur", () => { snapshotTaken = false; });
   });
 
   list.querySelectorAll("[data-family-id]").forEach(select => {
     select.addEventListener("change", () => {
+      pushUndo();
       const party = parties.find(p => p.id === select.dataset.familyId);
       if (!party) return;
       party.family = select.value;
@@ -535,6 +753,7 @@ function renderPartyList() {
 
   list.querySelectorAll("[data-position-id]").forEach(select => {
     select.addEventListener("change", () => {
+      pushUndo();
       const party = parties.find(p => p.id === select.dataset.positionId);
       if (!party) return;
       party.position = select.value;
@@ -551,6 +770,7 @@ function removeParty(id) {
   const party = parties.find(p => p.id === id);
   if (!party) return;
 
+  pushUndo();
   parties = parties.filter(p => p.id !== id);
   coalitionParties.delete(id);
 
@@ -582,6 +802,7 @@ function addParty() {
     return;
   }
 
+  pushUndo();
   const id = slugDistrict(`${name}-${Date.now()}`);
   parties.push({ id, name, short, color, family, position });
 
@@ -612,6 +833,7 @@ function fillEvenly() {
     return;
   }
 
+  pushUndo();
   const share = 100 / allowed.length;
   for (const p of parties) district.percentages[p.id] = 0;
   for (const p of allowed) district.percentages[p.id] = Number(share.toFixed(2));
@@ -626,6 +848,12 @@ function fillEvenly() {
 }
 
 function loadAllResults2024() {
+  if (ACTIVE_CHAMBER !== "federal") {
+    showToast("Les résultats 2024 ne sont pour l'instant disponibles que pour le niveau fédéral.");
+    return;
+  }
+
+  pushUndo();
   let filled = 0;
 
   for (const [key, district] of Object.entries(districts)) {
@@ -644,7 +872,10 @@ function loadAllResults2024() {
 }
 
 function selectDistrict(key) {
-  if (!districts[key]) return;
+  if (!districts[key]) {
+    showToast(`Cette province ne fait pas partie du ${CONFIG.label}.`);
+    return;
+  }
   selectedDistrictKey = key;
   const district = districts[key];
 
@@ -675,10 +906,11 @@ function selectDistrict(key) {
 }
 
 function resetSimulation() {
+  pushUndo();
   initializeDistricts();
   calculateAll();
-  selectDistrict("Antwerp");
-  showToast("Nouveau simulateur 2029 vierge — à toi de jouer.");
+  selectDistrict(Object.keys(CONFIG.districts)[0]);
+  showToast(`Nouveau scénario vierge pour le ${CONFIG.label} — à toi de jouer.`);
 }
 
 function computeHemicycleRows(total, rowCount) {
@@ -818,8 +1050,6 @@ function renderNationalResults() {
   }).join("");
 }
 
-const MAJORITY_SEATS = 76;
-
 function toggleCoalitionParty(id) {
   if (coalitionParties.has(id)) {
     coalitionParties.delete(id);
@@ -828,6 +1058,34 @@ function toggleCoalitionParty(id) {
   }
   renderCoalition();
   renderHemicycle();
+}
+
+function applyCoalitionPreset(presetId) {
+  const preset = COALITION_PRESETS.find(p => p.id === presetId);
+  if (!preset) return;
+
+  const validIds = preset.parties.filter(id => parties.some(p => p.id === id));
+  if (!validIds.length) {
+    showToast("Aucun des partis de cette coalition n'existe dans ta liste actuelle.");
+    return;
+  }
+
+  coalitionParties = new Set(validIds);
+  renderCoalition();
+  renderHemicycle();
+}
+
+function renderCoalitionPresets() {
+  const container = document.getElementById("coalitionPresets");
+  if (!container) return;
+
+  container.innerHTML = COALITION_PRESETS.map(preset => `
+    <button class="preset-chip" data-preset-id="${preset.id}" type="button">${escapeHtml(preset.name)}</button>
+  `).join("");
+
+  container.querySelectorAll("[data-preset-id]").forEach(btn => {
+    btn.addEventListener("click", () => applyCoalitionPreset(btn.dataset.presetId));
+  });
 }
 
 function renderCoalition() {
@@ -851,21 +1109,62 @@ function renderCoalition() {
     row.addEventListener("click", () => toggleCoalitionParty(row.dataset.coalitionId));
   });
 
+  const majority = CONFIG.majority;
   const coalitionSeats = [...coalitionParties].reduce((sum, id) => sum + (totals[id] || 0), 0);
   const badge = document.getElementById("coalitionBadge");
   const status = document.getElementById("coalitionStatus");
-  badge.textContent = `${coalitionSeats} / ${MAJORITY_SEATS}`;
+  badge.textContent = `${coalitionSeats} / ${majority}`;
 
   if (coalitionParties.size === 0) {
-    status.textContent = "Sélectionne des partis pour composer une coalition.";
+    status.textContent = "Sélectionne des partis ou un préréglage pour composer une coalition.";
     status.className = "coalition-status";
-  } else if (coalitionSeats >= MAJORITY_SEATS) {
+  } else if (coalitionSeats >= majority) {
     status.textContent = `Coalition validée — majorité absolue (${coalitionSeats} sièges).`;
     status.className = "coalition-status ok";
   } else {
-    status.textContent = `Coalition insuffisante — il manque ${MAJORITY_SEATS - coalitionSeats} siège(s).`;
+    status.textContent = `Coalition insuffisante — il manque ${majority - coalitionSeats} siège(s).`;
     status.className = "coalition-status short";
   }
+}
+
+function applySwing(partyId, delta) {
+  if (!partyId) {
+    showToast("Choisis un parti pour le swing.");
+    return;
+  }
+  if (!delta) {
+    showToast("Indique une variation en points (ex: -2 ou 3.5).");
+    return;
+  }
+
+  pushUndo();
+  let touched = 0;
+
+  for (const district of Object.values(districts)) {
+    const allowedIds = getAllowedParties(district).map(p => p.id);
+    if (!allowedIds.includes(partyId)) continue;
+
+    const oldValue = Number(district.percentages[partyId] || 0);
+    const newValue = sanitizePercent(oldValue + delta);
+    rebalancePercent(district, partyId, newValue, allowedIds);
+    calculateDistrict(district);
+    touched += 1;
+  }
+
+  renderAll();
+
+  const party = parties.find(p => p.id === partyId);
+  const label = party ? party.name : "Le parti";
+  const verb = delta >= 0 ? "gagne" : "perd";
+  showToast(`${label} ${verb} ${Math.abs(delta).toFixed(1)} pt(s) dans ${touched} circonscription(s) du ${CONFIG.label}.`);
+}
+
+function renderSwingPartySelect() {
+  const select = document.getElementById("swingParty");
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = parties.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  if (parties.some(p => p.id === current)) select.value = current;
 }
 
 function renderAll() {
@@ -874,6 +1173,8 @@ function renderAll() {
   renderNationalResults();
   renderHemicycle();
   renderCoalition();
+  renderCoalitionPresets();
+  renderSwingPartySelect();
   renderMap();
   updateInputSummary(false);
 }
@@ -899,6 +1200,16 @@ document.getElementById("resetBtn").addEventListener("click", resetSimulation);
 document.getElementById("loadAll2024Btn").addEventListener("click", loadAllResults2024);
 document.getElementById("fillEvenBtn").addEventListener("click", fillEvenly);
 document.getElementById("addPartyBtn").addEventListener("click", addParty);
+document.getElementById("undoBtn").addEventListener("click", undo);
+document.getElementById("swingApplyBtn").addEventListener("click", () => {
+  const partyId = document.getElementById("swingParty").value;
+  const delta = Number(String(document.getElementById("swingDelta").value).replace(",", "."));
+  applySwing(partyId, delta);
+});
+
+document.querySelectorAll("[data-chamber-id]").forEach(btn => {
+  btn.addEventListener("click", () => switchChamber(btn.dataset.chamberId));
+});
 
 document.getElementById("newPartyName").addEventListener("keydown", e => {
   if (e.key === "Enter") addParty();
@@ -911,7 +1222,18 @@ window.addEventListener("resize", () => {
   if (map) map.invalidateSize();
 });
 
+window.addEventListener("keydown", e => {
+  const isUndoShortcut = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z";
+  if (!isUndoShortcut) return;
+  const tag = document.activeElement?.tagName;
+  if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+  e.preventDefault();
+  undo();
+});
+
 initializeDistricts();
 initTheme();
+updateChamberTabsUI();
+updateLoadResultsButtonState();
 buildMap();
 renderAll();
