@@ -98,13 +98,15 @@ const POSITION_ORDER = { exg: 0, gauche: 1, centre: 2, droite: 3, exd: 4 };
 const POSITION_LABELS = { exg: "Extrême gauche", gauche: "Gauche", centre: "Centre", droite: "Droite", exd: "Extrême droite" };
 
 // Coalitions historiques/hypothétiques suggérées dans le coalition maker.
-// Les ids qui n'existent plus dans `parties` (parti supprimé) sont ignorés au clic.
+// "parties": liste fixe d'ids (coalitions historiques précises, non extensibles).
+// "positions": bloc idéologique — inclut dynamiquement TOUT parti (même créé par
+// l'utilisateur) dont l'orientation politique correspond, au moment du clic.
 const COALITION_PRESETS = [
   { id: "arizona", name: "Arizona", parties: ["nva", "mr", "vooruit", "cdv", "le"] },
   { id: "vivaldi", name: "Vivaldi", parties: ["ps", "mr", "ecolo", "groen", "openvld", "vooruit", "cdv"] },
   { id: "suedoise", name: "Suédoise", parties: ["nva", "mr", "cdv", "openvld"] },
-  { id: "gauche-unie", name: "Coalition de gauche", parties: ["ps", "ecolo", "groen", "vooruit", "ptb"] },
-  { id: "droite-exd", name: "Droite + extrême droite", parties: ["mr", "openvld", "nva", "vb"] }
+  { id: "gauche-unie", name: "Coalition de gauche", positions: ["exg", "gauche"] },
+  { id: "droite-exd", name: "Droite + extrême droite", positions: ["droite", "exd"] }
 ];
 
 // Résultats réels des élections fédérales du 9 juin 2024, par circonscription (en % des voix).
@@ -1086,7 +1088,14 @@ function applyCoalitionPreset(presetId) {
   const preset = COALITION_PRESETS.find(p => p.id === presetId);
   if (!preset) return;
 
-  const validIds = preset.parties.filter(id => parties.some(p => p.id === id));
+  const ids = new Set(preset.parties || []);
+  if (preset.positions) {
+    for (const p of parties) {
+      if (preset.positions.includes(p.position)) ids.add(p.id);
+    }
+  }
+
+  const validIds = [...ids].filter(id => parties.some(p => p.id === id));
   if (!validIds.length) {
     showToast("Aucun des partis de cette coalition n'existe dans ta liste actuelle.");
     return;
