@@ -443,6 +443,16 @@ function getAllowedParties(district) {
   return parties.filter(p => (p.family || "both") === "both" || p.family === lang);
 }
 
+// Parties relevant to the ACTIVE CHAMBER as a whole (union across its districts'
+// languages) — used by the coalition maker and the swing tool, so a purely
+// French-speaking chamber (e.g. Parlement wallon) doesn't clutter those lists
+// with Flemish-only parties that can never get a seat there.
+function relevantPartiesForChamber() {
+  const langs = new Set(Object.values(CONFIG.districts).map(d => d.language || "both"));
+  if (langs.has("both")) return parties;
+  return parties.filter(p => (p.family || "both") === "both" || langs.has(p.family));
+}
+
 function fetchGeoJson() {
   return fetch(GEOJSON_PATH)
     .then(response => {
@@ -491,10 +501,12 @@ function buildMap() {
           layer.on({
             click: () => selectDistrict(key),
             mouseover: e => {
+              if (!districts[key]) return;
               e.target.setStyle({ weight: 2.5, fillOpacity: 0.9 });
               e.target.bringToFront();
             },
             mouseout: e => {
+              if (!districts[key]) return;
               geoJsonLayer.resetStyle(e.target);
             }
           });
@@ -520,10 +532,22 @@ function buildMap() {
 function featureStyle(feature) {
   const key = getDistrictFromFeature(feature);
   const district = key ? districts[key] : null;
+
+  if (!district) {
+    return {
+      color: "#94a3b8",
+      weight: 1,
+      dashArray: "2,3",
+      fillColor: "#94a3b8",
+      fillOpacity: 0.12
+    };
+  }
+
   return {
     color: "#ffffff",
     weight: 1.25,
-    fillColor: district ? dominantPartyColor(district) : "#cbd5e1",
+    dashArray: null,
+    fillColor: dominantPartyColor(district),
     fillOpacity: 0.75
   };
 }
@@ -626,15 +650,13 @@ function renderPartyInputs() {
     syncPartyControls(district, id);
   }
 
-  function syncPartyControls(currentDistrict, skipId) {
+  function syncPartyControls(currentDistrict, skipSliderId) {
     for (const p of allowed) {
       const val = currentDistrict.percentages[p.id];
       const numberInput = document.getElementById(`pct-${p.id}`);
+      if (numberInput) numberInput.value = val;
       const slider = document.getElementById(`slider-${p.id}`);
-      if (p.id !== skipId) {
-        if (numberInput) numberInput.value = val;
-        if (slider) slider.value = val;
-      }
+      if (slider && p.id !== skipSliderId) slider.value = val;
       const seatEl = document.getElementById(`seat-${p.id}`);
       if (seatEl) seatEl.textContent = `${currentDistrict.seatsByParty[p.id] || 0} sièges`;
     }
@@ -1093,7 +1115,7 @@ function renderCoalition() {
   if (!list) return;
 
   const totals = nationalSeats();
-  const rows = parties
+  const rows = relevantPartiesForChamber()
     .map(p => ({ ...p, seats: totals[p.id] || 0 }))
     .sort((a, b) => b.seats - a.seats || a.name.localeCompare(b.name));
 
@@ -1163,8 +1185,9 @@ function renderSwingPartySelect() {
   const select = document.getElementById("swingParty");
   if (!select) return;
   const current = select.value;
-  select.innerHTML = parties.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
-  if (parties.some(p => p.id === current)) select.value = current;
+  const relevant = relevantPartiesForChamber();
+  select.innerHTML = relevant.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  if (relevant.some(p => p.id === current)) select.value = current;
 }
 
 function renderAll() {

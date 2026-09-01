@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
   <script>
     (function () {
       var saved = localStorage.getItem("bes-theme");
@@ -76,6 +76,20 @@
       <section class="card">
         <div class="card-header">
           <div>
+            <h2>Swing national</h2>
+            <p>Applique une variation uniforme à un parti, dans toutes les circonscriptions.</p>
+          </div>
+        </div>
+        <div class="swing-controls">
+          <select id="swingParty" aria-label="Parti concerné par le swing"></select>
+          <input id="swingDelta" type="number" step="0.1" placeholder="ex: -2" aria-label="Variation en points">
+          <button id="swingApplyBtn" class="button button-primary button-small">Appliquer</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <div>
             <h2>Partis</h2>
             <p>Les partis personnalisés sont disponibles partout.</p>
           </div>
@@ -138,20 +152,6 @@
         <div id="coalitionList" class="coalition-list"></div>
         <p id="coalitionStatus" class="coalition-status"></p>
       </section>
-
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <h2>Swing national</h2>
-            <p>Applique une variation uniforme à un parti, dans toutes les circonscriptions.</p>
-          </div>
-        </div>
-        <div class="swing-controls">
-          <select id="swingParty" aria-label="Parti concerné par le swing"></select>
-          <input id="swingDelta" type="number" step="0.1" placeholder="ex: -2" aria-label="Variation en points">
-          <button id="swingApplyBtn" class="button button-primary button-small">Appliquer</button>
-        </div>
-      </section>
     </aside>
   </main>
 
@@ -165,6 +165,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
