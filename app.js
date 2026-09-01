@@ -105,6 +105,7 @@ const COALITION_PRESETS = [
   { id: "arizona", name: "Arizona", parties: ["nva", "mr", "vooruit", "cdv", "le"] },
   { id: "vivaldi", name: "Vivaldi", parties: ["ps", "mr", "ecolo", "groen", "openvld", "vooruit", "cdv"] },
   { id: "suedoise", name: "Suédoise", parties: ["nva", "mr", "cdv", "openvld"] },
+  { id: "azur", name: "Azur", parties: ["mr", "le"] },
   { id: "gauche-unie", name: "Coalition de gauche", positions: ["exg", "gauche"] },
   { id: "droite-exd", name: "Droite + extrême droite", positions: ["droite", "exd"] }
 ];
