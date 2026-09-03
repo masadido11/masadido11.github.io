@@ -308,6 +308,23 @@ button, input, select { font: inherit; }
   margin: 4px 0 0;
 }
 
+.gradient-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  flex: 0 0 auto;
+}
+
+.gradient-toggle input {
+  cursor: pointer;
+}
+
 .badge {
   border: 1px solid var(--border);
   background: var(--panel-alt);

@@ -253,6 +253,21 @@ function initTheme() {
   });
 }
 
+function initMarginGradientToggle() {
+  const checkbox = document.getElementById("marginGradientToggle");
+  if (!checkbox) return;
+
+  const saved = localStorage.getItem("bes-margin-gradient");
+  marginGradientEnabled = saved !== "off";
+  checkbox.checked = marginGradientEnabled;
+
+  checkbox.addEventListener("change", () => {
+    marginGradientEnabled = checkbox.checked;
+    localStorage.setItem("bes-margin-gradient", marginGradientEnabled ? "on" : "off");
+    renderMap();
+  });
+}
+
 const money = new Intl.NumberFormat("fr-BE", { maximumFractionDigits: 1 });
 
 function makeBlankResult() {
@@ -502,6 +517,35 @@ function dominantPartyColor(district) {
   return parties.find(p => p.id === winner)?.color || "#cbd5e1";
 }
 
+// Écart de points entre le parti en tête et le deuxième, dans une circonscription.
+function getWinnerMargin(percentages) {
+  const values = parties
+    .map(p => Number(percentages[p.id] || 0))
+    .sort((a, b) => b - a);
+  if (values.length < 2) return values[0] || 0;
+  return Math.max(0, values[0] - values[1]);
+}
+
+// Option activable/désactivable : plus l'écart de victoire est grand, plus la
+// couleur de la province est saturée sur la carte (+1 pt = pâle, +10 pts et plus
+// = bien plus foncé). Désactivée, chaque province gagnée a la même intensité.
+let marginGradientEnabled = true;
+
+function computeFillOpacity(district, isSelected) {
+  let opacity;
+  if (marginGradientEnabled && district.winner) {
+    const margin = getWinnerMargin(district.percentages);
+    const capMargin = 30; // écart à partir duquel la couleur est à son maximum
+    const minOpacity = 0.35;
+    const maxOpacity = 0.9;
+    const t = Math.min(margin, capMargin) / capMargin;
+    opacity = minOpacity + t * (maxOpacity - minOpacity);
+  } else {
+    opacity = 0.75;
+  }
+  return isSelected ? Math.min(0.97, opacity + 0.12) : opacity;
+}
+
 function getAllowedParties(district) {
   const lang = district.language || "both";
   if (lang === "both") return parties;
@@ -613,7 +657,7 @@ function featureStyle(feature) {
     weight: 1.25,
     dashArray: null,
     fillColor: dominantPartyColor(district),
-    fillOpacity: 0.75
+    fillOpacity: computeFillOpacity(district, false)
   };
 }
 
@@ -642,12 +686,15 @@ function renderMap() {
       weight: key === selectedDistrictKey ? 3 : 1.25,
       dashArray: null,
       fillColor: dominantPartyColor(district),
-      fillOpacity: key === selectedDistrictKey ? 0.92 : 0.75
+      fillOpacity: computeFillOpacity(district, key === selectedDistrictKey)
     });
 
     const status = districtTotal(district);
+    const marginLine = marginGradientEnabled && district.winner
+      ? `<br>écart : +${getWinnerMargin(district.percentages).toFixed(1)} pt`
+      : "";
     layer.setTooltipContent(
-      `<strong>${district.name}</strong><br>${district.seats} sièges<br>${status.toFixed(1)} % saisi`
+      `<strong>${district.name}</strong><br>${district.seats} sièges<br>${status.toFixed(1)} % saisi${marginLine}`
     );
   });
 
@@ -1331,6 +1378,7 @@ window.addEventListener("keydown", e => {
 
 initializeDistricts();
 initTheme();
+initMarginGradientToggle();
 updateChamberTabsUI();
 updateLoadResultsButtonState();
 buildMap();
