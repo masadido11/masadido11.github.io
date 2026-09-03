@@ -155,11 +155,11 @@ const RESULTS_2024 = {
 // avec les mêmes valeurs que RESULTS_2024 pour la province correspondante, en
 // attendant des vraies données région par région — modifie-les librement ici.
 const RESULTS_2024_WALLON = {
-  "Hainaut": { ps: 28.9, mr: 26.1, le: 15.5, ptb: 14.0, ecolo: 4.0, defi: 2.0 },
-  "Liege": { mr: 28.4, ps: 21.8, le: 16.4, ptb: 14.4, ecolo: 7.9, defi: 2.0 },
-  "Namur": { le: 29.1, mr: 25.6, ps: 16.9, ptb: 10.1, ecolo: 7.1, defi: 2.0 },
-  "Luxembourg": { le: 32.09, mr: 30.90, ps: 16.81, ptb: 7.70, defi: 3.36, ecolo: 2.27 },
-  "Walloon Brabant": { mr: 35.31, le: 22.66, ps: 12.39, ptb: 7.89, ecolo: 9.2, defi: 3.41 }
+  "Hainaut": { ps: 29.2, mr: 26.9, le: 16.5, ptb: 14.9, ecolo: 5.0, defi: 2.4 },
+  "Liege": { mr: 28.5, ps: 23.6, le: 17.9, ptb: 13.7, ecolo: 7.5, defi: 2.3 },
+  "Namur": { le: 28.0, mr: 28.4, ps: 18.9, ptb: 11.3, ecolo: 7.4, defi: 3.0 },
+  "Luxembourg": { le: 31.2, mr: 34.7, ps: 18.7, ptb: 0.0, defi: 2.8, ecolo: 7.8 },
+  "Walloon Brabant": { mr: 37.9, le: 23.6, ps: 12.9, ptb: 8.9, ecolo: 9.5, defi: 3.8 }
 };
 
 const RESULTS_2024_FLAMAND = {
