@@ -97,18 +97,39 @@ const HEMICYCLE_ORDER = ["ptb", "ps", "vooruit", "groen", "ecolo", "defi", "le",
 const POSITION_ORDER = { exg: 0, gauche: 1, centre: 2, droite: 3, exd: 4 };
 const POSITION_LABELS = { exg: "Extrême gauche", gauche: "Gauche", centre: "Centre", droite: "Droite", exd: "Extrême droite" };
 
-// Coalitions historiques/hypothétiques suggérées dans le coalition maker.
-// "parties": liste fixe d'ids (coalitions historiques précises, non extensibles).
+// Coalitions suggérées dans le coalition maker, par chambre.
+// "parties": liste fixe d'ids (coalitions historiques/nommées précises, non extensibles).
 // "positions": bloc idéologique — inclut dynamiquement TOUT parti (même créé par
 // l'utilisateur) dont l'orientation politique correspond, au moment du clic.
-const COALITION_PRESETS = [
-  { id: "arizona", name: "Arizona", parties: ["nva", "mr", "vooruit", "cdv", "le"] },
-  { id: "vivaldi", name: "Vivaldi", parties: ["ps", "mr", "ecolo", "groen", "openvld", "vooruit", "cdv"] },
-  { id: "suedoise", name: "Suédoise", parties: ["nva", "mr", "cdv", "openvld"] },
-  { id: "azur", name: "Azur", parties: ["mr", "le"] },
-  { id: "gauche-unie", name: "Coalition de gauche", positions: ["exg", "gauche"] },
-  { id: "droite-exd", name: "Droite + extrême droite", positions: ["droite", "exd"] }
-];
+const COALITION_PRESETS_BY_CHAMBER = {
+  federal: [
+    { id: "arizona", name: "Arizona", parties: ["nva", "mr", "vooruit", "cdv", "le"] },
+    { id: "vivaldi", name: "Vivaldi", parties: ["ps", "mr", "ecolo", "groen", "openvld", "vooruit", "cdv"] },
+    { id: "suedoise", name: "Suédoise", parties: ["nva", "mr", "cdv", "openvld"] },
+    { id: "gauche-unie", name: "Coalition de gauche", positions: ["exg", "gauche"] },
+    { id: "droite-exd", name: "Droite + extrême droite", positions: ["droite", "exd"] }
+  ],
+  wallon: [
+    // Azur = vraie coalition régionale wallonne 2024 (gouvernement Dolimont, MR+LE).
+    { id: "azur", name: "Azur", parties: ["mr", "le"] },
+    { id: "rouge-romaine", name: "Rouge romaine", parties: ["ps", "le"] },
+    { id: "gauche-unie-w", name: "Coalition de gauche", positions: ["exg", "gauche"] },
+    { id: "droite-exd-w", name: "Union de la droite", positions: ["droite", "exd"] }
+  ],
+  flamand: [
+    // Coalition réelle du gouvernement flamand 2024 (N-VA/Vooruit/CD&V) — pas de
+    // surnom officiel largement utilisé, contrairement à "Azur" côté wallon.
+    { id: "flandre-2024", name: "N-VA · Vooruit · CD&V (2024)", parties: ["nva", "vooruit", "cdv"] },
+    { id: "gauche-unie-v", name: "Coalition de gauche", positions: ["exg", "gauche"] },
+    { id: "droite-exd-v", name: "Union de la droite", positions: ["droite", "exd"] }
+  ],
+  bruxellois: [
+    { id: "arizona-brx", name: "Arizona", parties: ["nva", "mr", "vooruit", "cdv", "le"] },
+    { id: "vivaldi-brx", name: "Vivaldi", parties: ["ps", "mr", "ecolo", "groen", "openvld", "vooruit", "cdv"] },
+    { id: "gauche-unie-b", name: "Coalition de gauche", positions: ["exg", "gauche"] },
+    { id: "droite-exd-b", name: "Union de la droite", positions: ["droite", "exd"] }
+  ]
+};
 
 // Résultats réels des élections fédérales du 9 juin 2024, par circonscription (en % des voix).
 // Sources : pages Wikipédia (EN/FR) de chaque circonscription + résultats officiels SPF Intérieur.
@@ -342,11 +363,15 @@ function round1(value) {
   return Math.round(value * 10) / 10;
 }
 
-// Sets `id`'s percentage to `newValue` in `district`, redistributing the
-// difference across the district's other allowed parties, proportionally to
-// their current share — so the district's total stays constant. Uses a small
-// water-filling loop so parties already at 0 (or that would go negative)
-// don't block the redistribution: the leftover just spills over to the
+// Sets `id`'s percentage to `newValue` in `district`. On an INCREASE, the extra
+// percentage is first taken from unused headroom (100 - current total) — so
+// building up a district from a low total doesn't cannibalize other parties.
+// Only once the total would exceed 100% does the overflow get taken from the
+// other parties, proportionally to their current share. On a DECREASE, the
+// freed percentage is given back to the other parties proportionally, so the
+// total stays constant (useful once the district is already near/at 100%).
+// Both directions use a small water-filling loop so parties already at 0 (or
+// that would go negative) don't block things — the leftover spills over to the
 // next-largest parties instead. Shared by the slider UI and the national swing tool.
 function rebalancePercent(district, id, newValue, allowedIds) {
   const others = allowedIds.filter(pid => pid !== id);
@@ -354,42 +379,46 @@ function rebalancePercent(district, id, newValue, allowedIds) {
   const delta = newValue - oldValue;
 
   if (Math.abs(delta) > 0.0001 && others.length) {
-    const othersSum = others.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
-
-    if (othersSum > 0.0001) {
-      if (delta < 0) {
-        // Freed up percentage: distribute it to the others, proportionally to
-        // their current value (biggest parties absorb the biggest share).
+    if (delta < 0) {
+      // Freed up percentage: distribute it to the others, proportionally to
+      // their current value (biggest parties absorb the biggest share).
+      const othersSum = others.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
+      if (othersSum > 0.0001) {
         const toDistribute = -delta;
         for (const pid of others) {
           const share = Number(district.percentages[pid] || 0) / othersSum;
           district.percentages[pid] = round1(Number(district.percentages[pid] || 0) + toDistribute * share);
         }
-      } else {
-        // Needs to take percentage away from the others, proportionally —
-        // clamped at 0, with leftover re-distributed among the remaining ones.
-        let remaining = delta;
-        let candidates = others.slice();
-        for (let iter = 0; iter < 6 && remaining > 0.0001 && candidates.length; iter++) {
-          const candidateSum = candidates.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
-          if (candidateSum <= 0.0001) break;
+      }
+    } else {
+      // Increase: first eat into the unused headroom (100 - total) without
+      // touching anyone else. Only the overflow beyond 100% gets taken from
+      // the other parties.
+      const total = allowedIds.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
+      const headroom = Math.max(0, 100 - total);
+      const fromHeadroom = Math.min(delta, headroom);
+      let remaining = delta - fromHeadroom;
 
-          const next = [];
-          let spillover = 0;
-          for (const pid of candidates) {
-            const cur = Number(district.percentages[pid] || 0);
-            const cut = remaining * (cur / candidateSum);
-            if (cut >= cur) {
-              spillover += cut - cur;
-              district.percentages[pid] = 0;
-            } else {
-              district.percentages[pid] = round1(cur - cut);
-              next.push(pid);
-            }
+      let candidates = others.slice();
+      for (let iter = 0; iter < 6 && remaining > 0.0001 && candidates.length; iter++) {
+        const candidateSum = candidates.reduce((sum, pid) => sum + Number(district.percentages[pid] || 0), 0);
+        if (candidateSum <= 0.0001) break;
+
+        const next = [];
+        let spillover = 0;
+        for (const pid of candidates) {
+          const cur = Number(district.percentages[pid] || 0);
+          const cut = remaining * (cur / candidateSum);
+          if (cut >= cur) {
+            spillover += cut - cur;
+            district.percentages[pid] = 0;
+          } else {
+            district.percentages[pid] = round1(cur - cut);
+            next.push(pid);
           }
-          candidates = next;
-          remaining = spillover;
         }
+        candidates = next;
+        remaining = spillover;
       }
     }
   }
@@ -1086,7 +1115,8 @@ function toggleCoalitionParty(id) {
 }
 
 function applyCoalitionPreset(presetId) {
-  const preset = COALITION_PRESETS.find(p => p.id === presetId);
+  const presets = COALITION_PRESETS_BY_CHAMBER[ACTIVE_CHAMBER] || [];
+  const preset = presets.find(p => p.id === presetId);
   if (!preset) return;
 
   const ids = new Set(preset.parties || []);
@@ -1111,7 +1141,8 @@ function renderCoalitionPresets() {
   const container = document.getElementById("coalitionPresets");
   if (!container) return;
 
-  container.innerHTML = COALITION_PRESETS.map(preset => `
+  const presets = COALITION_PRESETS_BY_CHAMBER[ACTIVE_CHAMBER] || [];
+  container.innerHTML = presets.map(preset => `
     <button class="preset-chip" data-preset-id="${preset.id}" type="button">${escapeHtml(preset.name)}</button>
   `).join("");
 
