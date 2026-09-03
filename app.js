@@ -296,10 +296,10 @@ function updateChamberTabsUI() {
 function updateLoadResultsButtonState() {
   const btn = document.getElementById("loadAll2024Btn");
   if (!btn) return;
-  btn.disabled = ACTIVE_CHAMBER !== "federal";
+  btn.disabled = false;
   btn.title = ACTIVE_CHAMBER === "federal"
     ? ""
-    : "Données 2024 pas encore disponibles pour les parlements régionaux.";
+    : "Reprend les résultats fédéraux 2024 de chaque province concernée (simplification de départ).";
 }
 
 function slugDistrict(name) {
@@ -902,11 +902,6 @@ function fillEvenly() {
 }
 
 function loadAllResults2024() {
-  if (ACTIVE_CHAMBER !== "federal") {
-    showToast("Les résultats 2024 ne sont pour l'instant disponibles que pour le niveau fédéral.");
-    return;
-  }
-
   pushUndo();
   let filled = 0;
 
@@ -922,7 +917,12 @@ function loadAllResults2024() {
   }
 
   renderAll();
-  showToast(`Résultats 2024 chargés pour ${filled} circonscriptions. Modifie-les librement pour construire ton scénario 2029.`);
+
+  if (ACTIVE_CHAMBER === "federal") {
+    showToast(`Résultats 2024 chargés pour ${filled} circonscriptions. Modifie-les librement pour construire ton scénario 2029.`);
+  } else {
+    showToast(`Résultats fédéraux 2024 repris pour ${filled} circonscription(s) du ${CONFIG.label} (simplification de départ — ajuste-les librement).`);
+  }
 }
 
 function selectDistrict(key) {
