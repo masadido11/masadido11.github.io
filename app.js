@@ -149,6 +149,39 @@ const RESULTS_2024 = {
   "Namur": { le: 29.1, mr: 25.6, ps: 16.9, ptb: 10.1, ecolo: 7.1, defi: 2.0 }
 };
 
+// Résultats des élections RÉGIONALES du 9 juin 2024, par circonscription — SÉPARÉS
+// du fédéral ci-dessus pour pouvoir les affiner indépendamment (les scores régionaux
+// réels diffèrent parfois des fédéraux). Pour l'instant, chaque objet est initialisé
+// avec les mêmes valeurs que RESULTS_2024 pour la province correspondante, en
+// attendant des vraies données région par région — modifie-les librement ici.
+const RESULTS_2024_WALLON = {
+  "Hainaut": { ps: 28.9, mr: 26.1, le: 15.5, ptb: 14.0, ecolo: 4.0, defi: 2.0 },
+  "Liege": { mr: 28.4, ps: 21.8, le: 16.4, ptb: 14.4, ecolo: 7.9, defi: 2.0 },
+  "Namur": { le: 29.1, mr: 25.6, ps: 16.9, ptb: 10.1, ecolo: 7.1, defi: 2.0 },
+  "Luxembourg": { le: 32.09, mr: 30.90, ps: 16.81, ptb: 7.70, defi: 3.36, ecolo: 2.27 },
+  "Walloon Brabant": { mr: 35.31, le: 22.66, ps: 12.39, ptb: 7.89, ecolo: 9.2, defi: 3.41 }
+};
+
+const RESULTS_2024_FLAMAND = {
+  "Antwerp": { nva: 30.97, vb: 20.97, vooruit: 10.74, cdv: 10.57, ptb: 10.52, groen: 7.59, openvld: 6.0 },
+  "Limburg": { vb: 24.62, nva: 23.68, cdv: 15.73, vooruit: 13.04, ptb: 9.07, openvld: 7.11, groen: 3.0 },
+  "East Flanders": { vb: 22.61, nva: 22.29, vooruit: 12.30, cdv: 12.12, openvld: 11.28, groen: 10.0, ptb: 8.0 },
+  "West Flanders": { vb: 24.52, nva: 23.22, vooruit: 16.62, cdv: 14.0, openvld: 8.0, groen: 6.0, ptb: 5.5 },
+  "Flemish Brabant": { nva: 25.52, vb: 16.65, vooruit: 13.69, cdv: 13.04, openvld: 11.68, ptb: 8.04, groen: 8.01 }
+};
+
+const RESULTS_2024_BRUXELLOIS = {
+  "Brussels": { mr: 23.15, ptb: 16.75, ps: 18.6, le: 9.5, ecolo: 11.3, defi: 6.58, groen: 3.3, vooruit: 3.6, nva: 2.8, vb: 2.5, cdv: 1.0, openvld: 1.0 }
+};
+
+// Fait le lien entre la chambre active et le bon jeu de données 2024.
+function getResults2024ForActiveChamber() {
+  if (ACTIVE_CHAMBER === "wallon") return RESULTS_2024_WALLON;
+  if (ACTIVE_CHAMBER === "flamand") return RESULTS_2024_FLAMAND;
+  if (ACTIVE_CHAMBER === "bruxellois") return RESULTS_2024_BRUXELLOIS;
+  return RESULTS_2024;
+}
+
 let parties = [...DEFAULT_PARTIES];
 let stateByChamber = {};
 let districts = {};
@@ -299,7 +332,7 @@ function updateLoadResultsButtonState() {
   btn.disabled = false;
   btn.title = ACTIVE_CHAMBER === "federal"
     ? ""
-    : "Reprend les résultats fédéraux 2024 de chaque province concernée (simplification de départ).";
+    : "Charge les résultats 2024 propres à ce parlement (à affiner dans RESULTS_2024_* du code).";
 }
 
 function slugDistrict(name) {
@@ -904,9 +937,10 @@ function fillEvenly() {
 function loadAllResults2024() {
   pushUndo();
   let filled = 0;
+  const results = getResults2024ForActiveChamber();
 
   for (const [key, district] of Object.entries(districts)) {
-    const data = RESULTS_2024[key];
+    const data = results[key];
     if (!data) continue;
 
     for (const party of parties) {
@@ -921,7 +955,7 @@ function loadAllResults2024() {
   if (ACTIVE_CHAMBER === "federal") {
     showToast(`Résultats 2024 chargés pour ${filled} circonscriptions. Modifie-les librement pour construire ton scénario 2029.`);
   } else {
-    showToast(`Résultats fédéraux 2024 repris pour ${filled} circonscription(s) du ${CONFIG.label} (simplification de départ — ajuste-les librement).`);
+    showToast(`Résultats 2024 chargés pour ${filled} circonscription(s) du ${CONFIG.label}. Modifie-les librement.`);
   }
 }
 
