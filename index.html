@@ -77,6 +77,20 @@
         </div>
         <p id="inputWarning" class="warning hidden"></p>
       </section>
+	  
+	  <section class="card">
+        <div class="card-header">
+          <div>
+            <h2>Swing national</h2>
+            <p>Applique une variation uniforme à un parti, dans toutes les circonscriptions.</p>
+          </div>
+        </div>
+        <div class="swing-controls">
+          <select id="swingParty" aria-label="Parti concerné par le swing"></select>
+          <input id="swingDelta" type="number" step="0.1" placeholder="ex: -2" aria-label="Variation en points">
+          <button id="swingApplyBtn" class="button button-primary button-small">Appliquer</button>
+        </div>
+	  </section>
 
       <section class="card">
         <div class="card-header">
@@ -143,21 +157,6 @@
         <div id="coalitionList" class="coalition-list"></div>
         <p id="coalitionStatus" class="coalition-status"></p>
       </section>
-
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <h2>Swing national</h2>
-            <p>Applique une variation uniforme à un parti, dans toutes les circonscriptions.</p>
-          </div>
-        </div>
-        <div class="swing-controls">
-          <select id="swingParty" aria-label="Parti concerné par le swing"></select>
-          <input id="swingDelta" type="number" step="0.1" placeholder="ex: -2" aria-label="Variation en points">
-          <button id="swingApplyBtn" class="button button-primary button-small">Appliquer</button>
-        </div>
-      </section>
-    </aside>
   </main>
 
   <footer>
