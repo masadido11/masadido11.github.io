@@ -59,13 +59,25 @@ const CHAMBERS = {
     threshold: 5,
     totalSeats: 89,
     majority: 45,
+    majorityNote: "Le vrai gouvernement bruxellois doit obtenir une majorité dans CHAQUE collège séparément (37/72 côté FR, 9/17 côté NL), pas seulement 45/89 au global.",
     districts: {
-      "Brussels": {
-        id: "brussels-brx",
-        name: "Bruxelles-Capitale",
-        seats: 89,
-        language: "both",
-        note: "Simplifié : le vrai Parlement bruxellois répartit les 89 sièges via deux collèges linguistiques séparés (72 FR + 17 NL). Ici, un seul calcul D'Hondt global est utilisé."
+      "Brussels-FR": {
+        id: "brussels-fr",
+        name: "Bruxelles — Collège francophone",
+        seats: 72,
+        language: "fr",
+        mapKey: "Brussels",
+        collegeGroup: "brussels",
+        collegeLabel: "Francophone"
+      },
+      "Brussels-NL": {
+        id: "brussels-nl",
+        name: "Bruxelles — Collège néerlandophone",
+        seats: 17,
+        language: "nl",
+        mapKey: "Brussels",
+        collegeGroup: "brussels",
+        collegeLabel: "Néerlandophone"
       }
     }
   }
@@ -88,7 +100,10 @@ const DEFAULT_PARTIES = [
   { id: "vooruit", name: "Vooruit", short: "VRT", color: "#C9184A", family: "nl", position: "gauche" },
   { id: "nva", name: "N-VA", short: "N-VA", color: "#FFD200", family: "nl", position: "droite" },
   { id: "vb", name: "Vlaams Belang", short: "VB", color: "#5C1A1A", family: "nl", position: "exd" },
-  { id: "groen", name: "Groen", short: "GROEN", color: "#4CAF50", family: "nl", position: "gauche" }
+  { id: "groen", name: "Groen", short: "GROEN", color: "#4CAF50", family: "nl", position: "gauche" },
+  // Liste néerlandophone bruxelloise uniquement (Fouad Ahidar, ex-Vooruit) — n'a
+  // jamais été présente au fédéral ni au Vlaams Parlement, d'où restrictToChambers.
+  { id: "fouadahidar", name: "Team Fouad Ahidar", short: "TFA", color: "#F2A900", family: "nl", position: "centre", restrictToChambers: ["bruxellois"] }
 ];
 
 // Political left-to-right seating order used by the hemicycle visual, and the
@@ -170,8 +185,13 @@ const RESULTS_2024_FLAMAND = {
   "Flemish Brabant": { nva: 25.52, vb: 16.65, vooruit: 13.69, cdv: 13.04, openvld: 11.68, ptb: 8.04, groen: 8.01 }
 };
 
+// Élections RÉGIONALES bruxelloises du 9 juin 2024, réparties par collège
+// linguistique (source : L'Avenir/RTBF, dépouillement à 100%). Contrairement au
+// fédéral, ce sont ici les vrais résultats propres à Bruxelles — pas une reprise
+// des chiffres fédéraux.
 const RESULTS_2024_BRUXELLOIS = {
-  "Brussels": { mr: 23.15, ptb: 16.75, ps: 18.6, le: 9.5, ecolo: 11.3, defi: 6.58, groen: 3.3, vooruit: 3.6, nva: 2.8, vb: 2.5, cdv: 1.0, openvld: 1.0 }
+  "Brussels-FR": { mr: 26.0, ps: 22.0, ptb: 20.9, le: 10.7, ecolo: 9.8, defi: 8.1 },
+  "Brussels-NL": { groen: 22.8, fouadahidar: 16.5, nva: 11.9, openvld: 10.6, vb: 10.5, vooruit: 10.0, ptb: 7.0, cdv: 6.3 }
 };
 
 // Fait le lien entre la chambre active et le bon jeu de données 2024.
@@ -303,21 +323,12 @@ function switchChamber(chamberId) {
     stateByChamber[chamberId] = buildStateFor(chamberId);
   }
   districts = stateByChamber[chamberId];
-  selectedDistrictKey = Object.keys(CONFIG.districts)[0];
   coalitionParties = new Set();
 
   updateChamberTabsUI();
   updateLoadResultsButtonState();
   renderAll();
-
-  const layer = featureByKey.get(selectedDistrictKey);
-  if (layer && map) {
-    if (typeof layer.getBounds === "function") {
-      map.fitBounds(layer.getBounds(), { maxZoom: 9, padding: [24, 24], animate: true });
-    } else if (typeof layer.getLatLng === "function") {
-      map.setView(layer.getLatLng(), 9, { animate: true });
-    }
-  }
+  selectDistrict(Object.keys(CONFIG.districts)[0]);
 
   showToast(`${CONFIG.label} — ${CONFIG.totalSeats} sièges, majorité à ${CONFIG.majority}.`);
 }
@@ -546,10 +557,16 @@ function computeFillOpacity(district, isSelected) {
   return isSelected ? Math.min(0.97, opacity + 0.12) : opacity;
 }
 
+function chamberAllowsParty(p) {
+  return !p.restrictToChambers || p.restrictToChambers.includes(ACTIVE_CHAMBER);
+}
+
 function getAllowedParties(district) {
   const lang = district.language || "both";
-  if (lang === "both") return parties;
-  return parties.filter(p => (p.family || "both") === "both" || p.family === lang);
+  return parties.filter(p => {
+    const familyOk = lang === "both" || (p.family || "both") === "both" || p.family === lang;
+    return familyOk && chamberAllowsParty(p);
+  });
 }
 
 // Parties relevant to the ACTIVE CHAMBER as a whole (union across its districts'
@@ -558,8 +575,10 @@ function getAllowedParties(district) {
 // with Flemish-only parties that can never get a seat there.
 function relevantPartiesForChamber() {
   const langs = new Set(Object.values(CONFIG.districts).map(d => d.language || "both"));
-  if (langs.has("both")) return parties;
-  return parties.filter(p => (p.family || "both") === "both" || langs.has(p.family));
+  return parties.filter(p => {
+    const familyOk = langs.has("both") || (p.family || "both") === "both" || langs.has(p.family);
+    return familyOk && chamberAllowsParty(p);
+  });
 }
 
 function fetchGeoJson() {
@@ -580,6 +599,22 @@ function fetchGeoJson() {
 // Belgium's area, with a little breathing room around the edges — panning
 // beyond this box is blocked so the map can never wander off to another country.
 const BELGIUM_BOUNDS = L.latLngBounds([49.15, 2.2], [51.75, 6.75]);
+
+// Resolves a stable map-feature key (e.g. "Brussels", always the federal name
+// since the geojson layer is built once) to the actual district key to use in
+// the ACTIVE chamber. Most of the time they're the same. But some chambers split
+// one physical province into several districts sharing the same polygon (the
+// Brussels linguistic colleges) — in that case, prefer whichever college is
+// already selected, otherwise fall back to the first one declared.
+function resolveDistrictKeyForMapKey(mapKey) {
+  if (districts[mapKey]) return mapKey;
+
+  const group = Object.entries(CONFIG.districts).filter(([, d]) => d.mapKey === mapKey);
+  if (!group.length) return null;
+
+  const preferred = group.find(([k]) => k === selectedDistrictKey);
+  return (preferred || group[0])[0];
+}
 
 function buildMap() {
   map = L.map("map", {
@@ -608,14 +643,14 @@ function buildMap() {
           layer.options.className = "province-path";
 
           layer.on({
-            click: () => selectDistrict(key),
+            click: () => selectDistrict(resolveDistrictKeyForMapKey(key) || key),
             mouseover: e => {
-              if (!districts[key]) return;
+              if (!resolveDistrictKeyForMapKey(key)) return;
               e.target.setStyle({ weight: 2.5, fillOpacity: 0.9 });
               e.target.bringToFront();
             },
             mouseout: e => {
-              if (!districts[key]) return;
+              if (!resolveDistrictKeyForMapKey(key)) return;
               geoJsonLayer.resetStyle(e.target);
             }
           });
@@ -639,7 +674,8 @@ function buildMap() {
 }
 
 function featureStyle(feature) {
-  const key = getDistrictFromFeature(feature);
+  const mapKey = getDistrictFromFeature(feature);
+  const key = mapKey ? resolveDistrictKeyForMapKey(mapKey) : null;
   const district = key ? districts[key] : null;
 
   if (!district) {
@@ -666,7 +702,8 @@ function renderMap() {
 
   geoJsonLayer.eachLayer(layer => {
     const feature = layer.feature;
-    const key = getDistrictFromFeature(feature);
+    const mapKey = getDistrictFromFeature(feature);
+    const key = mapKey ? resolveDistrictKeyForMapKey(mapKey) : null;
     const district = key ? districts[key] : null;
 
     if (!district) {
@@ -693,8 +730,11 @@ function renderMap() {
     const marginLine = marginGradientEnabled && district.winner
       ? `<br>écart : +${getWinnerMargin(district.percentages).toFixed(1)} pt`
       : "";
+    const collegeLine = district.collegeGroup
+      ? `<br><em>clique pour voir/éditer — collège affiché : ${district.collegeLabel}</em>`
+      : "";
     layer.setTooltipContent(
-      `<strong>${district.name}</strong><br>${district.seats} sièges<br>${status.toFixed(1)} % saisi${marginLine}`
+      `<strong>${district.name}</strong><br>${district.seats} sièges<br>${status.toFixed(1)} % saisi${marginLine}${collegeLine}`
     );
   });
 
@@ -1006,6 +1046,29 @@ function loadAllResults2024() {
   }
 }
 
+function renderCollegeSwitcher(district) {
+  const container = document.getElementById("collegeSwitcher");
+  if (!container) return;
+
+  if (!district.collegeGroup) {
+    container.innerHTML = "";
+    container.classList.add("hidden");
+    return;
+  }
+
+  const siblings = Object.entries(CONFIG.districts).filter(([, d]) => d.collegeGroup === district.collegeGroup);
+  container.classList.remove("hidden");
+  container.innerHTML = siblings.map(([key, d]) => `
+    <button class="college-chip ${key === selectedDistrictKey ? "selected" : ""}" data-college-key="${key}" type="button">
+      ${escapeHtml(d.collegeLabel)} · ${d.seats} sièges
+    </button>
+  `).join("");
+
+  container.querySelectorAll("[data-college-key]").forEach(btn => {
+    btn.addEventListener("click", () => selectDistrict(btn.dataset.collegeKey));
+  });
+}
+
 function selectDistrict(key) {
   if (!districts[key]) {
     showToast(`Cette province ne fait pas partie du ${CONFIG.label}.`);
@@ -1025,12 +1088,14 @@ function selectDistrict(key) {
     noteEl.classList.add("hidden");
   }
 
+  renderCollegeSwitcher(district);
+
   calculateDistrict(district);
   renderPartyInputs();
   updateInputSummary(false);
   renderMap();
 
-  const layer = featureByKey.get(key);
+  const layer = featureByKey.get(district.mapKey || key);
   if (layer && map) {
     if (typeof layer.getBounds === "function") {
       map.fitBounds(layer.getBounds(), { maxZoom: 9, padding: [24, 24], animate: true });
@@ -1269,6 +1334,10 @@ function renderCoalition() {
     status.textContent = `Coalition insuffisante — il manque ${majority - coalitionSeats} siège(s).`;
     status.className = "coalition-status short";
   }
+
+  if (CONFIG.majorityNote) {
+    status.textContent += ` ⚠ ${CONFIG.majorityNote}`;
+  }
 }
 
 function applySwing(partyId, delta) {
@@ -1322,6 +1391,7 @@ function renderAll() {
   renderSwingPartySelect();
   renderMap();
   updateInputSummary(false);
+  if (districts[selectedDistrictKey]) renderCollegeSwitcher(districts[selectedDistrictKey]);
 }
 
 function escapeHtml(value) {
