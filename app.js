@@ -43,8 +43,8 @@ const CHAMBERS = {
     id: "flamand",
     label: "Vlaams Parlement",
     threshold: 5,
-    totalSeats: 118,
-    majority: 60,
+    totalSeats: 124,
+    majority: 63,
     districts: {
       "Antwerp": { id: "antwerp-vl", name: "Anvers", seats: 33, language: "nl" },
       "Limburg": { id: "limburg-vl", name: "Limbourg", seats: 16, language: "nl" },
