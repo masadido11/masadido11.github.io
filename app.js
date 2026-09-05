@@ -178,11 +178,11 @@ const RESULTS_2024_WALLON = {
 };
 
 const RESULTS_2024_FLAMAND = {
-  "Antwerp": { nva: 30.97, vb: 20.97, vooruit: 10.74, cdv: 10.57, ptb: 10.52, groen: 7.59, openvld: 6.0 },
-  "Limburg": { vb: 24.62, nva: 23.68, cdv: 15.73, vooruit: 13.04, ptb: 9.07, openvld: 7.11, groen: 3.0 },
-  "East Flanders": { vb: 22.61, nva: 22.29, vooruit: 12.30, cdv: 12.12, openvld: 11.28, groen: 10.0, ptb: 8.0 },
-  "West Flanders": { vb: 24.52, nva: 23.22, vooruit: 16.62, cdv: 14.0, openvld: 8.0, groen: 6.0, ptb: 5.5 },
-  "Flemish Brabant": { nva: 25.52, vb: 16.65, vooruit: 13.69, cdv: 13.04, openvld: 11.68, ptb: 8.04, groen: 8.01 }
+  "Antwerp": { nva: 28.03, vb: 23.07, vooruit: 12.11, cdv: 10.19, ptb: 10.87, groen: 7.57, openvld: 5.92 },
+  "Limburg": { vb: 24.94, nva: 23.86, cdv: 16.34, vooruit: 12.68, ptb: 8.82, openvld: 6.71, groen: 4.71 },
+  "East Flanders": { vb: 23.28, nva: 22.19, vooruit: 16.37, cdv: 11.44, openvld: 9.72, groen: 7.93, ptb: 7.7 },
+  "West Flanders": { vb: 25.5, nva: 21.81, vooruit: 14.81, cdv: 17.95, openvld: 7.49, groen: 5.66, ptb: 5.29 },
+  "Flemish Brabant": { nva: 23.27, vb: 17.47, vooruit: 13.25, cdv: 12.51, openvld: 12.19, ptb: 8.09, groen: 8.13 }
 };
 
 // Élections RÉGIONALES bruxelloises du 9 juin 2024, réparties par collège
@@ -190,7 +190,7 @@ const RESULTS_2024_FLAMAND = {
 // fédéral, ce sont ici les vrais résultats propres à Bruxelles — pas une reprise
 // des chiffres fédéraux.
 const RESULTS_2024_BRUXELLOIS = {
-  "Brussels-FR": { mr: 26.0, ps: 22.0, ptb: 20.9, le: 10.7, ecolo: 9.8, defi: 8.1 },
+  "Brussels-FR": { mr: 27.0, ps: 22.0, ptb: 20.9, le: 10.7, ecolo: 9.8, defi: 8.1 },
   "Brussels-NL": { groen: 22.8, fouadahidar: 16.5, nva: 11.9, openvld: 10.6, vb: 10.5, vooruit: 10.0, ptb: 7.0, cdv: 6.3 }
 };
 
