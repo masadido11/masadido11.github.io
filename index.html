@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=11">
   <script>
     (function () {
       var saved = localStorage.getItem("bes-theme");
@@ -70,6 +70,7 @@
             <button id="fillEvenBtn" class="button button-small button-secondary">Répartir également</button>
           </div>
         </div>
+        <div id="collegeSwitcher" class="college-switcher hidden"></div>
         <div id="partyInputs" class="party-inputs"></div>
         <div class="input-summary">
           <strong>Total</strong>
@@ -157,6 +158,7 @@
         <div id="coalitionList" class="coalition-list"></div>
         <p id="coalitionStatus" class="coalition-status"></p>
       </section>
+    </aside>
   </main>
 
   <footer>
@@ -169,6 +171,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
