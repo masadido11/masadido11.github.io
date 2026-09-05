@@ -123,7 +123,6 @@ const COALITION_PRESETS_BY_CHAMBER = {
     { id: "suedoise", name: "Suédoise", parties: ["nva", "mr", "cdv", "openvld"] },
     { id: "gauche-unie", name: "Coalition de gauche", positions: ["exg", "gauche"] },
     { id: "droite-exd", name: "Droite + extrême droite", positions: ["droite", "exd"] }
-	{ id: "armenienne", name: "Armenienne", positions: ["mr", "ps", "le", "vooruit", "cdv", "openvld"] }
   ],
   wallon: [
     // Azur = vraie coalition régionale wallonne 2024 (gouvernement Dolimont, MR+LE).
