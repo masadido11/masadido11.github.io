@@ -103,7 +103,7 @@ const DEFAULT_PARTIES = [
   { id: "groen", name: "Groen", short: "GROEN", color: "#4CAF50", family: "nl", position: "gauche" },
   // Liste néerlandophone bruxelloise uniquement (Fouad Ahidar, ex-Vooruit) — n'a
   // jamais été présente au fédéral ni au Vlaams Parlement, d'où restrictToChambers.
-  { id: "fouadahidar", name: "Team Fouad Ahidar", short: "TFA", color: "#F2A900", family: "nl", position: "centre", restrictToChambers: ["bruxellois"] }
+  { id: "fouadahidar", name: "Team Fouad Ahidar", short: "TFA", color: "#F2A900", family: "nl", position: "gauche", restrictToChambers: ["bruxellois"] }
 ];
 
 // Political left-to-right seating order used by the hemicycle visual, and the
@@ -123,6 +123,7 @@ const COALITION_PRESETS_BY_CHAMBER = {
     { id: "suedoise", name: "Suédoise", parties: ["nva", "mr", "cdv", "openvld"] },
     { id: "gauche-unie", name: "Coalition de gauche", positions: ["exg", "gauche"] },
     { id: "droite-exd", name: "Droite + extrême droite", positions: ["droite", "exd"] }
+	{ id: "armenienne", name: "Armenienne", positions: ["mr", "ps", "le", "vooruit", "cdv", "openvld"] }
   ],
   wallon: [
     // Azur = vraie coalition régionale wallonne 2024 (gouvernement Dolimont, MR+LE).
