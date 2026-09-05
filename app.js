@@ -49,8 +49,8 @@ const CHAMBERS = {
       "Antwerp": { id: "antwerp-vl", name: "Anvers", seats: 33, language: "nl" },
       "Limburg": { id: "limburg-vl", name: "Limbourg", seats: 16, language: "nl" },
       "East Flanders": { id: "east-flanders-vl", name: "Flandre orientale", seats: 27, language: "nl" },
-      "West Flanders": { id: "west-flanders-vl", name: "Flandre occidentale", seats: 22, language: "nl" },
-      "Flemish Brabant": { id: "flemish-brabant-vl", name: "Brabant flamand", seats: 20, language: "nl" }
+      "West Flanders": { id: "west-flanders-vl", name: "Flandre occidentale", seats: 21, language: "nl" },
+      "Flemish Brabant": { id: "flemish-brabant-vl", name: "Brabant flamand", seats: 21, language: "nl" }
     }
   },
   bruxellois: {
