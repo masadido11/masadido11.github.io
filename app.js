@@ -323,12 +323,18 @@ function switchChamber(chamberId) {
     stateByChamber[chamberId] = buildStateFor(chamberId);
   }
   districts = stateByChamber[chamberId];
+  // Must happen BEFORE renderAll(): renderPartyInputs() and others read
+  // districts[selectedDistrictKey] directly, and a stale key from the
+  // previous chamber (e.g. "Antwerp" while switching to Wallon) doesn't
+  // exist in the new district set — that used to throw mid-render and abort
+  // the whole update, leaving the map/results stuck until the next click.
+  selectedDistrictKey = Object.keys(CONFIG.districts)[0];
   coalitionParties = new Set();
 
   updateChamberTabsUI();
   updateLoadResultsButtonState();
   renderAll();
-  selectDistrict(Object.keys(CONFIG.districts)[0]);
+  selectDistrict(selectedDistrictKey);
 
   showToast(`${CONFIG.label} — ${CONFIG.totalSeats} sièges, majorité à ${CONFIG.majority}.`);
 }
@@ -760,6 +766,10 @@ function renderLegend() {
 function renderPartyInputs() {
   const district = districts[selectedDistrictKey];
   const container = document.getElementById("partyInputs");
+  if (!district) {
+    container.innerHTML = "";
+    return;
+  }
   const allowed = getAllowedParties(district);
 
   container.innerHTML = allowed.map(p => {
@@ -861,6 +871,7 @@ function updateSeatPreviews(district) {
 
 function updateInputSummary(recalculate = false) {
   const district = districts[selectedDistrictKey];
+  if (!district) return;
   if (recalculate) calculateDistrict(district);
 
   const total = districtTotal(district);
@@ -1007,6 +1018,7 @@ function familyLabel(family) {
 
 function fillEvenly() {
   const district = districts[selectedDistrictKey];
+  if (!district) return;
   const allowed = getAllowedParties(district);
   if (allowed.length === 0) {
     showToast("Aucun parti disponible pour cette circonscription.");
