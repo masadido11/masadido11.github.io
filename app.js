@@ -50,7 +50,15 @@ const CHAMBERS = {
       "Limburg": { id: "limburg-vl", name: "Limbourg", seats: 16, language: "nl" },
       "East Flanders": { id: "east-flanders-vl", name: "Flandre orientale", seats: 27, language: "nl" },
       "West Flanders": { id: "west-flanders-vl", name: "Flandre occidentale", seats: 21, language: "nl" },
-      "Flemish Brabant": { id: "flemish-brabant-vl", name: "Brabant flamand", seats: 21, language: "nl" }
+      "Flemish Brabant": { id: "flemish-brabant-vl", name: "Brabant flamand", seats: 21, language: "nl" },
+      "Brussels-VL": {
+        id: "brussels-vl",
+        name: "Bruxelles (circonscription flamande)",
+        seats: 6,
+        language: "nl",
+        mapKey: "Brussels",
+        note: "6 sièges du Vlaams Parlement élus par l'électorat néerlandophone de Bruxelles — un scrutin distinct de celui du Parlement bruxellois."
+      }
     }
   },
   bruxellois: {
@@ -182,7 +190,12 @@ const RESULTS_2024_FLAMAND = {
   "Limburg": { vb: 24.94, nva: 23.86, cdv: 16.34, vooruit: 12.68, ptb: 8.82, openvld: 6.71, groen: 4.71 },
   "East Flanders": { vb: 23.28, nva: 22.19, vooruit: 16.37, cdv: 11.44, openvld: 9.72, groen: 7.93, ptb: 7.7 },
   "West Flanders": { vb: 25.5, nva: 21.81, vooruit: 14.81, cdv: 17.95, openvld: 7.49, groen: 5.66, ptb: 5.29 },
-  "Flemish Brabant": { nva: 23.27, vb: 17.47, vooruit: 13.25, cdv: 12.51, openvld: 12.19, ptb: 8.09, groen: 8.13 }
+  "Flemish Brabant": { nva: 23.27, vb: 17.47, vooruit: 13.25, cdv: 12.51, openvld: 12.19, ptb: 8.09, groen: 8.13 },
+  // Approximation : le scrutin propre à cette circonscription du Vlaams Parlement
+  // n'a pas de résultats détaillés facilement disponibles séparément. On reprend
+  // ici ceux du collège néerlandophone du Parlement bruxellois (même électorat,
+  // mêmes listes, même jour de vote) — à corriger si tu trouves les vrais chiffres.
+  "Brussels-VL": { groen: 22.8, fouadahidar: 16.5, nva: 11.9, openvld: 10.6, vb: 10.5, vooruit: 10.0, ptb: 7.0, cdv: 6.3 }
 };
 
 // Élections RÉGIONALES bruxelloises du 9 juin 2024, réparties par collège
@@ -497,9 +510,23 @@ function rebalancePercent(district, id, newValue, allowedIds) {
   district.percentages[id] = newValue;
 }
 
+// Strips out any party that isn't allowed in this district (wrong language, or
+// restricted to a different chamber) before any computation touches it — so a
+// stray leftover percentage for a restricted party (e.g. Team Fouad Ahidar
+// outside the Bruxellois chamber) can never silently count anywhere.
+function getRelevantPercentages(district) {
+  const allowedIds = new Set(getAllowedParties(district).map(p => p.id));
+  const result = {};
+  for (const [id, value] of Object.entries(district.percentages)) {
+    if (allowedIds.has(id)) result[id] = value;
+  }
+  return result;
+}
+
 function calculateDistrict(district) {
-  district.seatsByParty = dHondt(district.percentages, district.seats);
-  district.winner = getWinner(district.percentages);
+  const relevantPercentages = getRelevantPercentages(district);
+  district.seatsByParty = dHondt(relevantPercentages, district.seats);
+  district.winner = getWinner(relevantPercentages);
   return true;
 }
 
@@ -531,7 +558,7 @@ function nationalSeats() {
 }
 
 function districtTotal(district) {
-  return Object.values(district.percentages).reduce((a, b) => a + Number(b || 0), 0);
+  return Object.values(getRelevantPercentages(district)).reduce((a, b) => a + Number(b || 0), 0);
 }
 
 function dominantPartyColor(district) {
@@ -557,7 +584,7 @@ let marginGradientEnabled = true;
 function computeFillOpacity(district, isSelected) {
   let opacity;
   if (marginGradientEnabled && district.winner) {
-    const margin = getWinnerMargin(district.percentages);
+    const margin = getWinnerMargin(getRelevantPercentages(district));
     const capMargin = 30; // écart à partir duquel la couleur est à son maximum
     const minOpacity = 0.35;
     const maxOpacity = 0.9;
@@ -740,7 +767,7 @@ function renderMap() {
 
     const status = districtTotal(district);
     const marginLine = marginGradientEnabled && district.winner
-      ? `<br>écart : +${getWinnerMargin(district.percentages).toFixed(1)} pt`
+      ? `<br>écart : +${getWinnerMargin(getRelevantPercentages(district)).toFixed(1)} pt`
       : "";
     const collegeLine = district.collegeGroup
       ? `<br><em>clique pour voir/éditer — collège affiché : ${district.collegeLabel}</em>`
