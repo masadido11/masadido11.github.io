@@ -111,7 +111,7 @@ const DEFAULT_PARTIES = [
   { id: "groen", name: "Groen", short: "GROEN", color: "#4CAF50", family: "nl", position: "gauche" },
   // Liste néerlandophone bruxelloise uniquement (Fouad Ahidar, ex-Vooruit) — n'a
   // jamais été présente au fédéral ni au Vlaams Parlement, d'où restrictToChambers.
-  { id: "fouadahidar", name: "Team Fouad Ahidar", short: "TFA", color: "#F2A900", family: "nl", position: "gauche", restrictToChambers: ["bruxellois"] }
+  { id: "fouadahidar", name: "Team Fouad Ahidar", short: "TFA", color: "#F2A900", family: "nl", position: "gauche", restrictToDistrictIds: ["brussels-nl", "brussels-vl"] }
 ];
 
 // Political left-to-right seating order used by the hemicycle visual, and the
@@ -600,11 +600,19 @@ function chamberAllowsParty(p) {
   return !p.restrictToChambers || p.restrictToChambers.includes(ACTIVE_CHAMBER);
 }
 
+// Some parties only ever contested ONE specific constituency, which can exist
+// in more than one chamber (e.g. Brussels, both in the Bruxellois chamber and
+// as the Vlaams Parlement's Brussels seat) — restrictToDistrictIds checks the
+// district's own stable `id`, independent of which chamber it belongs to.
+function districtAllowsParty(p, district) {
+  return !p.restrictToDistrictIds || p.restrictToDistrictIds.includes(district.id);
+}
+
 function getAllowedParties(district) {
   const lang = district.language || "both";
   return parties.filter(p => {
     const familyOk = lang === "both" || (p.family || "both") === "both" || p.family === lang;
-    return familyOk && chamberAllowsParty(p);
+    return familyOk && chamberAllowsParty(p) && districtAllowsParty(p, district);
   });
 }
 
@@ -613,10 +621,12 @@ function getAllowedParties(district) {
 // French-speaking chamber (e.g. Parlement wallon) doesn't clutter those lists
 // with Flemish-only parties that can never get a seat there.
 function relevantPartiesForChamber() {
-  const langs = new Set(Object.values(CONFIG.districts).map(d => d.language || "both"));
+  const chamberDistricts = Object.values(CONFIG.districts);
+  const langs = new Set(chamberDistricts.map(d => d.language || "both"));
   return parties.filter(p => {
     const familyOk = langs.has("both") || (p.family || "both") === "both" || langs.has(p.family);
-    return familyOk && chamberAllowsParty(p);
+    const districtOk = !p.restrictToDistrictIds || chamberDistricts.some(d => p.restrictToDistrictIds.includes(d.id));
+    return familyOk && chamberAllowsParty(p) && districtOk;
   });
 }
 
