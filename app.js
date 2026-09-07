@@ -716,7 +716,8 @@ function buildMap() {
 
           layer.bindTooltip(CONFIG.districts[key].name, {
             sticky: true,
-            direction: "center",
+            direction: "right",
+            offset: [18, 0],
             className: "province-tooltip"
           });
         }
@@ -795,7 +796,7 @@ function renderMap() {
         .join("");
       if (podium.length >= 2) {
         const margin = podium[0].value - podium[1].value;
-        podiumLines += `<br><em>Avance du 1er : +${margin.toFixed(1)} pt</em>`;
+        podiumLines += `<br><em>écart 1er/2e : +${margin.toFixed(1)} pt</em>`;
       }
     }
     const collegeLine = district.collegeGroup
