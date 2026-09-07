@@ -796,7 +796,7 @@ function renderMap() {
         .join("");
       if (podium.length >= 2) {
         const margin = podium[0].value - podium[1].value;
-        podiumLines += `<br><em>écart 1er/2e : +${margin.toFixed(1)} pt</em>`;
+        podiumLines += `<br>${medals[i]} ${escapeHtml(entry.party.name)} : +${margin.toFixed(1)} pt</em>`;
       }
     }
     const collegeLine = district.collegeGroup
