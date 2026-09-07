@@ -111,7 +111,7 @@ const DEFAULT_PARTIES = [
   { id: "groen", name: "Groen", short: "GROEN", color: "#4CAF50", family: "nl", position: "gauche" },
   // Liste néerlandophone bruxelloise uniquement (Fouad Ahidar, ex-Vooruit) — n'a
   // jamais été présente au fédéral ni au Vlaams Parlement, d'où restrictToChambers.
-  { id: "fouadahidar", name: "Team Fouad Ahidar", short: "TFA", color: "#F2A900", family: "nl", position: "gauche", restrictToDistrictIds: ["brussels-nl", "brussels-vl"] }
+  { id: "fouadahidar", name: "Team Fouad Ahidar", short: "TFA", color: "#C9A9E0", family: "nl", position: "gauche", restrictToDistrictIds: ["brussels-nl", "brussels-vl"] }
 ];
 
 // Political left-to-right seating order used by the hemicycle visual, and the
@@ -561,6 +561,16 @@ function districtTotal(district) {
   return Object.values(getRelevantPercentages(district)).reduce((a, b) => a + Number(b || 0), 0);
 }
 
+// Top 3 parties of a district (winner, runner-up, third), respecting the same
+// chamber/language/district restrictions as the seat calculation.
+function getPodium(district) {
+  const relevant = getRelevantPercentages(district);
+  return getAllowedParties(district)
+    .map(p => ({ party: p, value: Number(relevant[p.id] || 0) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3);
+}
+
 function dominantPartyColor(district) {
   const winner = district.winner;
   if (!winner) return "#cbd5e1";
@@ -776,14 +786,23 @@ function renderMap() {
     });
 
     const status = districtTotal(district);
-    const marginLine = marginGradientEnabled && district.winner
-      ? `<br>écart : +${getWinnerMargin(getRelevantPercentages(district)).toFixed(1)} pt`
-      : "";
+    const podium = getPodium(district);
+    let podiumLines = "";
+    if (podium.length && podium[0].value > 0) {
+      const medals = ["🥇", "🥈", "🥉"];
+      podiumLines = podium
+        .map((entry, i) => `<br>${medals[i]} ${escapeHtml(entry.party.name)} : ${entry.value.toFixed(1)}%`)
+        .join("");
+      if (podium.length >= 2) {
+        const margin = podium[0].value - podium[1].value;
+        podiumLines += `<br><em>écart 1er/2e : +${margin.toFixed(1)} pt</em>`;
+      }
+    }
     const collegeLine = district.collegeGroup
       ? `<br><em>clique pour voir/éditer — collège affiché : ${district.collegeLabel}</em>`
       : "";
     layer.setTooltipContent(
-      `<strong>${district.name}</strong><br>${district.seats} sièges<br>${status.toFixed(1)} % saisi${marginLine}${collegeLine}`
+      `<strong>${district.name}</strong><br>${district.seats} sièges<br>${status.toFixed(1)} % saisi${podiumLines}${collegeLine}`
     );
   });
 
