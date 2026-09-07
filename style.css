@@ -361,6 +361,16 @@ button, input, select { font: inherit; }
 .province-path { transition: fill-opacity 0.15s ease; }
 .province-path:hover { fill-opacity: 0.85; }
 
+/* Clicking a polygon gives it keyboard focus for accessibility; browsers draw
+   a default focus outline around its BOUNDING BOX (not its actual shape) —
+   showing up as an unwanted black square. The real selection highlight is
+   already the province's own thicker/darker border set in JS; just hide the
+   browser's default artifact. */
+.leaflet-interactive:focus,
+path.leaflet-interactive:focus {
+  outline: none;
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -531,6 +541,31 @@ button, input, select { font: inherit; }
   margin: 8px 0 0;
   padding: 8px 10px;
   font-size: 11px;
+}
+
+.college-switcher {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 0;
+  flex-wrap: wrap;
+}
+
+.college-chip {
+  border: 1.5px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.college-chip:hover { transform: translateY(-1px); }
+.college-chip.selected {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
 }
 
 .party-list {
