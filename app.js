@@ -67,7 +67,6 @@ const CHAMBERS = {
     threshold: 5,
     totalSeats: 89,
     majority: 45,
-    majorityNote: "Le vrai gouvernement bruxellois doit obtenir une majorité dans CHAQUE collège séparément (37/72 côté FR, 9/17 côté NL), pas seulement 45/89 au global.",
     districts: {
       "Brussels-FR": {
         id: "brussels-fr",
@@ -1372,6 +1371,12 @@ function renderCoalitionPresets() {
   });
 }
 
+function coalitionSeatsInDistrict(districtKey) {
+  const district = districts[districtKey];
+  if (!district) return 0;
+  return [...coalitionParties].reduce((sum, id) => sum + (district.seatsByParty[id] || 0), 0);
+}
+
 function renderCoalition() {
   const list = document.getElementById("coalitionList");
   if (!list) return;
@@ -1393,10 +1398,39 @@ function renderCoalition() {
     row.addEventListener("click", () => toggleCoalitionParty(row.dataset.coalitionId));
   });
 
-  const majority = CONFIG.majority;
-  const coalitionSeats = [...coalitionParties].reduce((sum, id) => sum + (totals[id] || 0), 0);
   const badge = document.getElementById("coalitionBadge");
   const status = document.getElementById("coalitionStatus");
+
+  if (ACTIVE_CHAMBER === "bruxellois") {
+    // Real rule: the Brussels government needs its own majority within EACH
+    // linguistic college separately, not just a combined majority of 89.
+    const FR_THRESHOLD = 32; // needs strictly more than this
+    const NL_THRESHOLD = 8;
+    const frSeats = coalitionSeatsInDistrict("Brussels-FR");
+    const nlSeats = coalitionSeatsInDistrict("Brussels-NL");
+    const frOk = frSeats > FR_THRESHOLD;
+    const nlOk = nlSeats > NL_THRESHOLD;
+
+    badge.textContent = `FR ${frSeats}/72 · NL ${nlSeats}/17`;
+
+    if (coalitionParties.size === 0) {
+      status.textContent = "Sélectionne des partis ou un préréglage pour composer une coalition.";
+      status.className = "coalition-status";
+    } else if (frOk && nlOk) {
+      status.textContent = `Coalition validée — majorité dans les deux collèges (FR ${frSeats}/72, NL ${nlSeats}/17).`;
+      status.className = "coalition-status ok";
+    } else {
+      const missing = [];
+      if (!frOk) missing.push(`côté francophone : ${frSeats}/72 (il faut plus de ${FR_THRESHOLD})`);
+      if (!nlOk) missing.push(`côté néerlandophone : ${nlSeats}/17 (il faut plus de ${NL_THRESHOLD})`);
+      status.textContent = `Coalition insuffisante — ${missing.join(" et ")}.`;
+      status.className = "coalition-status short";
+    }
+    return;
+  }
+
+  const majority = CONFIG.majority;
+  const coalitionSeats = [...coalitionParties].reduce((sum, id) => sum + (totals[id] || 0), 0);
   badge.textContent = `${coalitionSeats} / ${majority}`;
 
   if (coalitionParties.size === 0) {
@@ -1408,10 +1442,6 @@ function renderCoalition() {
   } else {
     status.textContent = `Coalition insuffisante — il manque ${majority - coalitionSeats} siège(s).`;
     status.className = "coalition-status short";
-  }
-
-  if (CONFIG.majorityNote) {
-    status.textContent += ` ⚠ ${CONFIG.majorityNote}`;
   }
 }
 
