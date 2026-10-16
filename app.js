@@ -267,6 +267,7 @@ let selectedDistrictKey = "Antwerp";
 let coalitionParties = new Set();
 let map;
 let geoJsonLayer;
+let arrLayer = null; // couche des arrondissements wallons (affichée seulement en mode "wallon")
 let featureByKey = new Map();
 
 let undoStack = [];
@@ -720,6 +721,169 @@ function resolveDistrictKeyForMapKey(mapKey) {
   return (preferred || group[0])[0];
 }
 
+// ---------------------------------------------------------------------------
+// Couche "arrondissements" du Parlement wallon — ÉTAPE 2b : affichage seulement.
+// Chaque polygone pointe pour l'instant vers le district PROVINCIAL existant
+// (résultats provinciaux). L'étape 2c passera à un district par arrondissement,
+// avec calcul des sièges groupé par circonscription.
+// ---------------------------------------------------------------------------
+const ARRONDISSEMENTS_PATHS = [
+  "data/arrondissements.json",
+  "data/arrondissements.geojson",
+  "arrondissements.json",
+  "arrondissements.geojson"
+];
+
+const WALLON_PROVINCE_TO_DISTRICT_KEY = {
+  "Brabant wallon": "Walloon Brabant",
+  "Hainaut": "Hainaut",
+  "Liège": "Liege",
+  "Luxembourg": "Luxembourg",
+  "Namur": "Namur"
+};
+
+function arrondissementName(feature) {
+  return feature?.properties?.NAME_3 || null;
+}
+
+// 2b : renvoie la clé du district provincial. (2c : renverra la clé de l'arrondissement.)
+function wallonDistrictKeyForArrondissement(arrName) {
+  const info = WALLON_ARRONDISSEMENTS[arrName];
+  if (!info) return null;
+  const province = WALLON_CONSTITUENCIES[info.constituency]?.province;
+  return WALLON_PROVINCE_TO_DISTRICT_KEY[province] || null;
+}
+
+async function fetchFirstAvailable(paths) {
+  for (const path of paths) {
+    try {
+      const response = await fetch(path);
+      if (response.ok) return await response.json();
+    } catch (error) {
+      // on essaie le chemin suivant
+    }
+  }
+  throw new Error(`aucun fichier trouvé parmi : ${paths.join(", ")}`);
+}
+
+function arrFeatureStyle(feature) {
+  const key = wallonDistrictKeyForArrondissement(arrondissementName(feature));
+  const district = key ? districts[key] : null;
+
+  if (!district) {
+    return { color: "#94a3b8", weight: 1, dashArray: "2,3", fillColor: "#94a3b8", fillOpacity: 0.12 };
+  }
+
+  const selected = key === selectedDistrictKey;
+  return {
+    color: selected ? "#0f172a" : "#ffffff",
+    weight: selected ? 2.5 : 1,
+    dashArray: null,
+    fillColor: dominantPartyColor(district),
+    fillOpacity: computeFillOpacity(district, selected)
+  };
+}
+
+function podiumTooltipHtml(district) {
+  const podium = getPodium(district);
+  if (!podium.length || podium[0].value <= 0) return "";
+
+  const medals = ["🥇", "🥈", "🥉"];
+  let html = podium
+    .map((entry, i) => `<br>${medals[i]} ${escapeHtml(entry.party.name)} : ${entry.value.toFixed(1)}%`)
+    .join("");
+  if (podium.length >= 2) {
+    html += `<br><em>écart 1er/2e : +${(podium[0].value - podium[1].value).toFixed(1)} pt</em>`;
+  }
+  return html;
+}
+
+function renderArrondissementLayer() {
+  arrLayer.eachLayer(layer => {
+    const arrName = arrondissementName(layer.feature);
+    const key = wallonDistrictKeyForArrondissement(arrName);
+    const district = key ? districts[key] : null;
+
+    layer.setStyle(arrFeatureStyle(layer.feature));
+
+    if (!district) {
+      layer.setTooltipContent(`<strong>${escapeHtml(arrName || "?")}</strong>`);
+      return;
+    }
+
+    const info = WALLON_ARRONDISSEMENTS[arrName];
+    const constituency = WALLON_CONSTITUENCIES[info.constituency];
+    layer.setTooltipContent(
+      `<strong>${escapeHtml(arrName)}</strong>` +
+      `<br>circonscription : ${escapeHtml(info.constituency)} (${constituency.seats} sièges)` +
+      `<br><em>résultats provinciaux (${escapeHtml(district.name)}) pour l'instant</em>` +
+      podiumTooltipHtml(district)
+    );
+  });
+
+  renderLegend();
+}
+
+function loadArrondissementsLayer() {
+  fetchFirstAvailable(ARRONDISSEMENTS_PATHS)
+    .then(data => {
+      const wallonOnly = {
+        ...data,
+        features: data.features.filter(f => f.properties?.NAME_1 === "Wallonie")
+      };
+
+      arrLayer = L.geoJSON(wallonOnly, {
+        style: arrFeatureStyle,
+        onEachFeature: (feature, layer) => {
+          const arrName = arrondissementName(feature);
+          layer.options.className = "province-path";
+
+          layer.bindTooltip(arrName || "", {
+            sticky: true,
+            direction: "right",
+            offset: [18, 0],
+            className: "province-tooltip"
+          });
+
+          layer.on({
+            click: () => {
+              const key = wallonDistrictKeyForArrondissement(arrName);
+              if (key) selectDistrict(key);
+            },
+            mouseover: e => {
+              if (!districts[wallonDistrictKeyForArrondissement(arrName)]) return;
+              e.target.setStyle({ weight: 2.5, fillOpacity: 0.9 });
+              e.target.bringToFront();
+            },
+            mouseout: e => arrLayer.resetStyle(e.target)
+          });
+        }
+      });
+
+      // L'utilisateur est peut-être déjà sur l'onglet wallon quand le fichier arrive.
+      if (ACTIVE_CHAMBER === "wallon") {
+        updateMapLayerForChamber();
+        renderMap();
+      }
+    })
+    .catch(error => {
+      console.warn("Couche des arrondissements indisponible, carte provinciale conservée :", error.message);
+    });
+}
+
+// Affiche les arrondissements pour le Parlement wallon, les provinces partout ailleurs.
+function updateMapLayerForChamber() {
+  if (!map || !geoJsonLayer) return;
+
+  if (ACTIVE_CHAMBER === "wallon" && arrLayer) {
+    if (map.hasLayer(geoJsonLayer)) map.removeLayer(geoJsonLayer);
+    if (!map.hasLayer(arrLayer)) map.addLayer(arrLayer);
+  } else {
+    if (arrLayer && map.hasLayer(arrLayer)) map.removeLayer(arrLayer);
+    if (!map.hasLayer(geoJsonLayer)) map.addLayer(geoJsonLayer);
+  }
+}
+
 function buildMap() {
   map = L.map("map", {
     zoomControl: true,
@@ -771,6 +935,7 @@ function buildMap() {
       map.fitBounds(geoJsonLayer.getBounds(), { padding: [18, 18] });
       renderMap();
       selectDistrict("Antwerp");
+      loadArrondissementsLayer();
     })
     .catch(error => {
       console.error(error);
