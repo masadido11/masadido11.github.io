@@ -90,6 +90,52 @@ const CHAMBERS = {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Parlement wallon : vraies circonscriptions (11), formées d'un ou plusieurs
+// arrondissements. Source des sièges : Parlement de Wallonie / SPF Intérieur.
+// Les clés d'arrondissement correspondent à NAME_3 dans data/arrondissements.json.
+// "weight" = poids approximatif (population estimée) servant à pondérer les
+// pourcentages des arrondissements d'une même circonscription ; à affiner si
+// de vrais chiffres par arrondissement sont trouvés.
+// (Étape 2a : données uniquement, pas encore branchées sur la carte ni le calcul.)
+// ---------------------------------------------------------------------------
+const WALLON_CONSTITUENCIES = {
+  "Nivelles": { seats: 8, province: "Brabant wallon" },
+  "Mons": { seats: 5, province: "Hainaut" },
+  "Charleroi-Thuin": { seats: 10, province: "Hainaut" },
+  "Tournai-Ath-Mouscron": { seats: 7, province: "Hainaut" },
+  "Soignies": { seats: 5, province: "Hainaut" },
+  "Huy-Waremme": { seats: 4, province: "Liège" },
+  "Liège": { seats: 13, province: "Liège" },
+  "Verviers": { seats: 6, province: "Liège" },
+  "Arlon-Marche-Bastogne-Neufchâteau-Virton": { seats: 6, province: "Luxembourg" },
+  "Dinant-Philippeville": { seats: 4, province: "Namur" },
+  "Namur": { seats: 7, province: "Namur" }
+};
+
+const WALLON_ARRONDISSEMENTS = {
+  "Nivelles": { constituency: "Nivelles", weight: 408000 },
+  "Mons": { constituency: "Mons", weight: 262000 },
+  "Charleroi": { constituency: "Charleroi-Thuin", weight: 440000 },
+  "Thuin": { constituency: "Charleroi-Thuin", weight: 160000 },
+  "Tournai": { constituency: "Tournai-Ath-Mouscron", weight: 142000 },
+  "Ath": { constituency: "Tournai-Ath-Mouscron", weight: 85000 },
+  "Moeskroen": { constituency: "Tournai-Ath-Mouscron", weight: 84000 },
+  "Soignies": { constituency: "Soignies", weight: 200000 },
+  "Huy": { constituency: "Huy-Waremme", weight: 100000 },
+  "Waremme": { constituency: "Huy-Waremme", weight: 90000 },
+  "Liège": { constituency: "Liège", weight: 460000 },
+  "Verviers": { constituency: "Verviers", weight: 195000 },
+  "Arlon": { constituency: "Arlon-Marche-Bastogne-Neufchâteau-Virton", weight: 60000 },
+  "Marche-en-Famenne": { constituency: "Arlon-Marche-Bastogne-Neufchâteau-Virton", weight: 56000 },
+  "Bastogne": { constituency: "Arlon-Marche-Bastogne-Neufchâteau-Virton", weight: 36000 },
+  "Neufchâteau": { constituency: "Arlon-Marche-Bastogne-Neufchâteau-Virton", weight: 44000 },
+  "Virton": { constituency: "Arlon-Marche-Bastogne-Neufchâteau-Virton", weight: 45000 },
+  "Dinant": { constituency: "Dinant-Philippeville", weight: 103000 },
+  "Philippeville": { constituency: "Dinant-Philippeville", weight: 47000 },
+  "Namur": { constituency: "Namur", weight: 270000 }
+};
+
 let ACTIVE_CHAMBER = "federal";
 let CONFIG = CHAMBERS.federal;
 
