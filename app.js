@@ -306,6 +306,7 @@ function undo() {
   updateUndoButton();
   updateChamberTabsUI();
   updateLoadResultsButtonState();
+  updateMapLayerForChamber();
   renderAll();
   showToast("Dernière action annulée.");
 }
@@ -392,6 +393,7 @@ function switchChamber(chamberId) {
 
   updateChamberTabsUI();
   updateLoadResultsButtonState();
+  updateMapLayerForChamber();
   renderAll();
   selectDistrict(selectedDistrictKey);
 
@@ -968,6 +970,10 @@ function featureStyle(feature) {
 }
 
 function renderMap() {
+  if (arrLayer && map && map.hasLayer(arrLayer)) {
+    renderArrondissementLayer();
+    return;
+  }
   if (!geoJsonLayer) return;
 
   geoJsonLayer.eachLayer(layer => {
@@ -997,18 +1003,7 @@ function renderMap() {
     });
 
     const status = districtTotal(district);
-    const podium = getPodium(district);
-    let podiumLines = "";
-    if (podium.length && podium[0].value > 0) {
-      const medals = ["🥇", "🥈", "🥉"];
-      podiumLines = podium
-        .map((entry, i) => `<br>${medals[i]} ${escapeHtml(entry.party.name)} : ${entry.value.toFixed(1)}%`)
-        .join("");
-      if (podium.length >= 2) {
-        const margin = podium[0].value - podium[1].value;
-        podiumLines += `<br><em>écart 1er/2e : +${margin.toFixed(1)} pt</em>`;
-      }
-    }
+    const podiumLines = podiumTooltipHtml(district);
     const collegeLine = district.collegeGroup
       ? `<br><em>clique pour voir/éditer — collège affiché : ${district.collegeLabel}</em>`
       : "";
