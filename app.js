@@ -31,13 +31,9 @@ const CHAMBERS = {
     threshold: 5,
     totalSeats: 75,
     majority: 38,
-    districts: {
-      "Hainaut": { id: "hainaut-w", name: "Hainaut", seats: 31, language: "fr" },
-      "Liege": { id: "liege-w", name: "Liège", seats: 22, language: "fr" },
-      "Namur": { id: "namur-w", name: "Namur", seats: 9, language: "fr" },
-      "Luxembourg": { id: "luxembourg-w", name: "Luxembourg", seats: 5, language: "fr" },
-      "Walloon Brabant": { id: "walloon-brabant-w", name: "Brabant wallon", seats: 8, language: "fr" }
-    }
+    // 20 arrondissements éditables, regroupés en 11 circonscriptions pour le calcul
+    // des sièges : rempli plus bas par buildWallonDistricts() (voir WALLON_*).
+    districts: {}
   },
   flamand: {
     id: "flamand",
@@ -135,6 +131,26 @@ const WALLON_ARRONDISSEMENTS = {
   "Philippeville": { constituency: "Dinant-Philippeville", weight: 47000 },
   "Namur": { constituency: "Namur", weight: 270000 }
 };
+
+function buildWallonDistricts() {
+  const result = {};
+  for (const [arrName, info] of Object.entries(WALLON_ARRONDISSEMENTS)) {
+    const constituency = WALLON_CONSTITUENCIES[info.constituency];
+    result[arrName] = {
+      id: "arr-" + arrName.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-"),
+      name: arrName,
+      seats: constituency.seats, // sièges de la circonscription (affichage ; calcul groupé)
+      language: "fr",
+      constituency: info.constituency,
+      province: constituency.province,
+      weight: info.weight,
+      note: `Circonscription « ${info.constituency} » : ${constituency.seats} sièges. ` +
+        "Les voix des arrondissements de la circonscription sont regroupées (pondérées) avant le calcul des sièges."
+    };
+  }
+  return result;
+}
+CHAMBERS.wallon.districts = buildWallonDistricts();
 
 let ACTIVE_CHAMBER = "federal";
 let CONFIG = CHAMBERS.federal;
@@ -268,6 +284,7 @@ let coalitionParties = new Set();
 let map;
 let geoJsonLayer;
 let arrLayer = null; // couche des arrondissements wallons (affichée seulement en mode "wallon")
+const arrLayerByKey = new Map();
 let featureByKey = new Map();
 
 let undoStack = [];
@@ -405,7 +422,7 @@ function updateChamberTabsUI() {
     btn.classList.toggle("selected", btn.dataset.chamberId === ACTIVE_CHAMBER);
   });
 
-  const districtCount = Object.keys(CONFIG.districts).length;
+  const districtCount = chamberConstituencyCount();
   const mapBadge = document.getElementById("mapSeatsBadge");
   if (mapBadge) mapBadge.textContent = `${CONFIG.totalSeats} sièges`;
 
@@ -572,10 +589,43 @@ function getRelevantPercentages(district) {
 }
 
 function calculateDistrict(district) {
+  if (district.constituency) {
+    calculateConstituency(district.constituency);
+    return true;
+  }
   const relevantPercentages = getRelevantPercentages(district);
   district.seatsByParty = dHondt(relevantPercentages, district.seats);
   district.winner = getWinner(relevantPercentages);
   return true;
+}
+
+// Parlement wallon : les sièges se calculent au niveau de la CIRCONSCRIPTION, qui
+// regroupe un ou plusieurs arrondissements éditables séparément. Les voix sont
+// regroupées ainsi : chaque arrondissement est ramené à des parts (somme = 100 %),
+// pondérées par son poids (population estimée), puis additionnées. Un arrondissement
+// sans aucune saisie est ignoré (il ne tire pas le résultat vers zéro).
+// Tous les arrondissements d'une circonscription portent le même seatsByParty
+// (celui de la circonscription) ; nationalSeats() ne le compte qu'une fois.
+// Chaque arrondissement garde son propre vainqueur (pour la couleur de la carte).
+function calculateConstituency(name) {
+  const members = Object.values(districts).filter(d => d.constituency === name);
+  if (!members.length) return;
+
+  const pooled = {};
+  for (const member of members) {
+    const relevant = getRelevantPercentages(member);
+    const total = Object.values(relevant).reduce((sum, v) => sum + Number(v || 0), 0);
+    if (total <= 0) continue;
+    for (const [id, value] of Object.entries(relevant)) {
+      pooled[id] = (pooled[id] || 0) + (member.weight || 1) * (Number(value || 0) / total);
+    }
+  }
+
+  const result = dHondt(pooled, members[0].seats);
+  for (const member of members) {
+    member.seatsByParty = { ...result };
+    member.winner = getWinner(getRelevantPercentages(member));
+  }
 }
 
 function getWinner(percentages) {
@@ -599,10 +649,21 @@ function calculateAll() {
 
 function nationalSeats() {
   const totals = Object.fromEntries(parties.map(p => [p.id, 0]));
+  const countedConstituencies = new Set();
   for (const district of Object.values(districts)) {
+    if (district.constituency) {
+      if (countedConstituencies.has(district.constituency)) continue;
+      countedConstituencies.add(district.constituency);
+    }
     for (const p of parties) totals[p.id] += district.seatsByParty[p.id] || 0;
   }
   return totals;
+}
+
+// Nombre de vraies circonscriptions de la chambre active (les arrondissements
+// d'une même circonscription ne comptent que pour une).
+function chamberConstituencyCount() {
+  return new Set(Object.values(CONFIG.districts).map(d => d.constituency || d.id)).size;
 }
 
 function districtTotal(district) {
@@ -724,10 +785,8 @@ function resolveDistrictKeyForMapKey(mapKey) {
 }
 
 // ---------------------------------------------------------------------------
-// Couche "arrondissements" du Parlement wallon — ÉTAPE 2b : affichage seulement.
-// Chaque polygone pointe pour l'instant vers le district PROVINCIAL existant
-// (résultats provinciaux). L'étape 2c passera à un district par arrondissement,
-// avec calcul des sièges groupé par circonscription.
+// Couche "arrondissements" du Parlement wallon. Chaque polygone = un district
+// éditable ; les sièges se calculent par circonscription (voir calculateConstituency).
 // ---------------------------------------------------------------------------
 const ARRONDISSEMENTS_PATHS = [
   "data/arrondissements.json",
@@ -748,12 +807,9 @@ function arrondissementName(feature) {
   return feature?.properties?.NAME_3 || null;
 }
 
-// 2b : renvoie la clé du district provincial. (2c : renverra la clé de l'arrondissement.)
+// Chaque polygone correspond à son propre district (clé = nom d'arrondissement).
 function wallonDistrictKeyForArrondissement(arrName) {
-  const info = WALLON_ARRONDISSEMENTS[arrName];
-  if (!info) return null;
-  const province = WALLON_CONSTITUENCIES[info.constituency]?.province;
-  return WALLON_PROVINCE_TO_DISTRICT_KEY[province] || null;
+  return WALLON_ARRONDISSEMENTS[arrName] ? arrName : null;
 }
 
 async function fetchFirstAvailable(paths) {
@@ -777,13 +833,27 @@ function arrFeatureStyle(feature) {
   }
 
   const selected = key === selectedDistrictKey;
+  const selectedDistrict = districts[selectedDistrictKey];
+  const sibling = !selected && selectedDistrict?.constituency &&
+    selectedDistrict.constituency === district.constituency;
+
   return {
-    color: selected ? "#0f172a" : "#ffffff",
-    weight: selected ? 2.5 : 1,
+    color: selected ? "#0f172a" : sibling ? "#475569" : "#ffffff",
+    weight: selected ? 3 : sibling ? 2 : 1,
     dashArray: null,
     fillColor: dominantPartyColor(district),
     fillOpacity: computeFillOpacity(district, selected)
   };
+}
+
+// "PS 3 · MR 3 · LE 2" : sièges de la circonscription, du plus grand au plus petit.
+function seatSummaryHtml(district) {
+  const parts = parties
+    .map(p => ({ short: p.short, seats: district.seatsByParty[p.id] || 0 }))
+    .filter(entry => entry.seats > 0)
+    .sort((a, b) => b.seats - a.seats)
+    .map(entry => `${escapeHtml(entry.short)} ${entry.seats}`);
+  return parts.length ? `<br>sièges : ${parts.join(" · ")}` : "";
 }
 
 function podiumTooltipHtml(district) {
@@ -817,9 +887,10 @@ function renderArrondissementLayer() {
     const constituency = WALLON_CONSTITUENCIES[info.constituency];
     layer.setTooltipContent(
       `<strong>${escapeHtml(arrName)}</strong>` +
-      `<br>circonscription : ${escapeHtml(info.constituency)} (${constituency.seats} sièges)` +
-      `<br><em>résultats provinciaux (${escapeHtml(district.name)}) pour l'instant</em>` +
-      podiumTooltipHtml(district)
+      `<br>${districtTotal(district).toFixed(1)} % saisi` +
+      podiumTooltipHtml(district) +
+      `<br><em>circonscription : ${escapeHtml(info.constituency)} (${constituency.seats} sièges)</em>` +
+      seatSummaryHtml(district)
     );
   });
 
@@ -839,6 +910,7 @@ function loadArrondissementsLayer() {
         onEachFeature: (feature, layer) => {
           const arrName = arrondissementName(feature);
           layer.options.className = "province-path";
+          if (arrName) arrLayerByKey.set(arrName, layer);
 
           layer.bindTooltip(arrName || "", {
             sticky: true,
@@ -1307,7 +1379,8 @@ function loadAllResults2024() {
   const results = getResults2024ForActiveChamber();
 
   for (const [key, district] of Object.entries(districts)) {
-    const data = results[key];
+    // Arrondissement sans données propres : on reprend celles de sa province (étape 2d : à affiner).
+    const data = results[key] || (district.province && results[WALLON_PROVINCE_TO_DISTRICT_KEY[district.province]]);
     if (!data) continue;
 
     for (const party of parties) {
@@ -1321,6 +1394,8 @@ function loadAllResults2024() {
 
   if (ACTIVE_CHAMBER === "federal") {
     showToast(`Résultats 2024 chargés pour ${filled} circonscriptions. Modifie-les librement pour construire ton scénario 2029.`);
+  } else if (ACTIVE_CHAMBER === "wallon") {
+    showToast(`Résultats 2024 chargés pour ${filled} arrondissements (chiffres provinciaux pour l'instant). Modifie-les librement.`);
   } else {
     showToast(`Résultats 2024 chargés pour ${filled} circonscription(s) du ${CONFIG.label}. Modifie-les librement.`);
   }
@@ -1375,7 +1450,10 @@ function selectDistrict(key) {
   updateInputSummary(false);
   renderMap();
 
-  const layer = featureByKey.get(district.mapKey || key);
+  const showingArrondissements = arrLayer && map && map.hasLayer(arrLayer);
+  const layer = showingArrondissements
+    ? arrLayerByKey.get(key)
+    : featureByKey.get(district.mapKey || key);
   if (layer && map) {
     if (typeof layer.getBounds === "function") {
       map.fitBounds(layer.getBounds(), { maxZoom: 9, padding: [24, 24], animate: true });
