@@ -238,12 +238,30 @@ const RESULTS_2024 = {
 // réels diffèrent parfois des fédéraux). Pour l'instant, chaque objet est initialisé
 // avec les mêmes valeurs que RESULTS_2024 pour la province correspondante, en
 // attendant des vraies données région par région — modifie-les librement ici.
+// ---- PARLEMENT WALLON : résultats 2024 PAR CIRCONSCRIPTION (11 lignes, à remplir à la main) ----
+// Un nombre par parti = son % dans la circonscription (la somme n'a pas besoin de faire 100 :
+// les autres listes peuvent être ignorées). Mets 0 pour un parti sans liste.
+// Le bouton « Résultats 2024 » recopie la ligne d'une circonscription dans chacun de ses
+// arrondissements (leurs voix sont ensuite regroupées avec pondération). Pour un résultat propre
+// à un arrondissement, ajoute une ligne portant son nom, par ex. "Thuin": { ... } : elle est
+// prioritaire sur celle de sa circonscription.
 const RESULTS_2024_WALLON = {
-  "Hainaut": { ps: 29.2, mr: 26.9, le: 16.5, ptb: 14.9, ecolo: 5.0, defi: 2.4 },
-  "Liege": { mr: 28.5, ps: 23.6, le: 17.9, ptb: 13.7, ecolo: 7.5, defi: 2.3 },
-  "Namur": { le: 28.0, mr: 28.4, ps: 18.9, ptb: 11.3, ecolo: 7.4, defi: 3.0 },
-  "Luxembourg": { le: 31.2, mr: 34.7, ps: 18.7, ptb: 0.0, defi: 2.8, ecolo: 7.8 },
-  "Walloon Brabant": { mr: 37.9, le: 23.6, ps: 12.9, ptb: 8.9, ecolo: 9.5, defi: 3.8 }
+  // Brabant wallon
+  "Nivelles": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 8 sièges
+  // Hainaut
+  "Mons": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 5 sièges
+  "Charleroi-Thuin": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 10 sièges
+  "Tournai-Ath-Mouscron": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 7 sièges
+  "Soignies": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 5 sièges
+  // Liège
+  "Huy-Waremme": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 4 sièges
+  "Liège": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 13 sièges
+  "Verviers": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 6 sièges
+  // Luxembourg
+  "Arlon-Marche-Bastogne-Neufchâteau-Virton": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 6 sièges
+  // Namur
+  "Dinant-Philippeville": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 4 sièges
+  "Namur": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 } // 7 sièges
 };
 
 const RESULTS_2024_FLAMAND = {
@@ -1380,7 +1398,7 @@ function loadAllResults2024() {
 
   for (const [key, district] of Object.entries(districts)) {
     // Arrondissement sans données propres : on reprend celles de sa province (étape 2d : à affiner).
-    const data = results[key] || (district.province && results[WALLON_PROVINCE_TO_DISTRICT_KEY[district.province]]);
+    const data = results[key] || results[district.constituency] || (district.province && results[WALLON_PROVINCE_TO_DISTRICT_KEY[district.province]]);
     if (!data) continue;
 
     for (const party of parties) {
