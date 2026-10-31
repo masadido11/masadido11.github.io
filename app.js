@@ -247,21 +247,21 @@ const RESULTS_2024 = {
 // prioritaire sur celle de sa circonscription.
 const RESULTS_2024_WALLON = {
   // Brabant wallon
-  "Nivelles": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 8 sièges
+  "Nivelles": { mr: 37.90, ps: 12.95, le: 23.60, ptb: 8.88, ecolo: 9.50, defi: 3.86 }, // 8 sièges
   // Hainaut
-  "Mons": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 5 sièges
-  "Charleroi-Thuin": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 10 sièges
-  "Tournai-Ath-Mouscron": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 7 sièges
-  "Soignies": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 5 sièges
+  "Mons": { mr: 26.84, ps: 33.80, le: 14.07, ptb: 14.54, ecolo: 4.75, defi: 2.27 }, // 5 sièges
+  "Charleroi-Thuin": { mr: 26.41, ps: 30.13, le: 14.97, ptb: 15.93, ecolo: 3.85, defi: 2.38 }, // 10 sièges
+  "Tournai-Ath-Mouscron": { mr: 28.44, ps: 24.83, le: 19.77, ptb: 12.79, ecolo: 7.16, defi: 2.44 }, // 7 sièges
+  "Soignies": { mr: 25.88, ps: 28.97, le: 17.05, ptb: 16.34, ecolo: 5.00, defi: 2.49 }, // 5 sièges
   // Liège
-  "Huy-Waremme": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 4 sièges
-  "Liège": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 13 sièges
-  "Verviers": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 6 sièges
+  "Huy-Waremme": { mr: 31.17, ps: 22.23, le: 19.71, ptb: 10.53, ecolo: 7.35, defi: 2.60 }, // 4 sièges
+  "Liège": { mr: 25.11, ps: 26.25, le: 15.50, ptb: 16.82, ecolo: 7.18, defi: 2.48 }, // 13 sièges
+  "Verviers": { mr: 33.90, ps: 19.04, le: 21.47, ptb: 9.67, ecolo: 8.56, defi: 1.71 }, // 6 sièges
   // Luxembourg
-  "Arlon-Marche-Bastogne-Neufchâteau-Virton": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 6 sièges
+  "Arlon-Marche-Bastogne-Neufchâteau-Virton": { mr: 34.73, ps: 18.75, le: 31.24, ptb: 0, ecolo: 7.86, defi: 2.78 }, // 6 sièges
   // Namur
-  "Dinant-Philippeville": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 }, // 4 sièges
-  "Namur": { mr: 0, ps: 0, le: 0, ptb: 0, ecolo: 0, defi: 0 } // 7 sièges
+  "Dinant-Philippeville": { mr: 33.06, ps: 19.47, le: 26.12, ptb: 11.80, ecolo: 6.29, defi: 3.27 }, // 4 sièges
+  "Namur": { mr: 25.74, ps: 18.56, le: 29.10, ptb: 11.01, ecolo: 8.32, defi: 3.14 } // 7 sièges
 };
 
 const RESULTS_2024_FLAMAND = {
